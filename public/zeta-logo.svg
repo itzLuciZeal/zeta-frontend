@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Dark Midnight Container Base -->
+  <rect width="512" height="512" rx="128" fill="#010a15"/>
+
+  <!-- Ultra-Clean Iconic Z Emblem -->
+  <g transform="translate(256, 256) skewX(-14)">
+    <!-- Deep Cobalt Hard-Shadow -->
+    <path d="M -110,-110 L 110,-110 L -15,0 L 110,0 L 110,110 L -110,110 L 15,0 L -110,0 Z" 
+          fill="#0284c7" 
+          transform="translate(14, 14)"/>
+    
+    <!-- Pure Electric Cyan Z -->
+    <path d="M -110,-110 L 110,-110 L -15,0 L 110,0 L 110,110 L -110,110 L 15,0 L -110,0 Z" 
+          fill="#00f0ff"/>
+  </g>
+</svg>
