@@ -67,9 +67,9 @@ export default function UserDashboard() {
       <div className="w-full flex flex-col items-center">
         {/* Top Header Section */}
         <header className="group relative w-full max-w-4xl my-6 flex flex-col sm:flex-row items-center justify-between p-6 transition-all duration-200 ease-out hover:translate-x-1">
-          <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-          <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-          <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+          <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-8 transition-transform"></div>
+          <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+19px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+          <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+34px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
           <div className="z-10">
             <h1 className="font-extrabold italic text-3xl sm:text-5xl text-p3-primary font-kanit -skew-x-8 tracking-wide">
@@ -98,8 +98,8 @@ export default function UserDashboard() {
         <main className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           <div className="group relative p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
             <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-            <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-            <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+            <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+            <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
             <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6">TOTAL COMPLETED</span>
             <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2">
@@ -110,8 +110,8 @@ export default function UserDashboard() {
 
           <div className="group relative p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
             <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-            <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-            <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+            <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+            <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
             <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6">LIFETIME ACCURACY</span>
             <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2">
@@ -122,8 +122,8 @@ export default function UserDashboard() {
 
           <div className="group relative p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
             <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-            <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-            <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+            <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+            <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
             <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6">PRESSURE SCORE</span>
             <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2">

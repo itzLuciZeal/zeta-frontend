@@ -9,11 +9,13 @@ import {
   getQuizParticipantsApi,
 } from "../../services/dashboard.service";
 import type { QuizParticipantTelemetry, QuizOverallAnalytics } from "../../types/dashboard.types";
-import { getActiveQuizzesApi } from "../../services/quiz.service";
+import { getActiveQuizzesApi, updateQuizApi } from "../../services/quiz.service";
 import { fetchQuizItemAnalysis } from "../../services/analyticsService";
-import type { Quiz } from "../../types/quiz.types";
+import type { Quiz, UpdateQuizRequest } from "../../types/quiz.types";
 import type { QuizItemAnalysisResponse } from "../../types/analytics.types";
+import { type SubmitEvent } from "react";
 import Footer from "../../components/ui/Footer";
+import GrantQuizAccessSection from "../admin/GrantQuizAccessSection";
 
 interface PerformanceSummary {
   total_quizzes_completed: number;
@@ -69,7 +71,7 @@ export default function AdminDashboard() {
   const [expandedQuizId, setExpandedQuizId] = useState<string | null>(null);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState<boolean>(false);
 
-  // Per-Quiz Expanded Analytics & Participants State (Admin View)
+  // Per-Quiz Expanded Analytics & Participants State
   const [quizAnalyticsMap, setQuizAnalyticsMap] = useState<Record<string, QuizOverallAnalytics>>({});
   const [quizParticipantsMap, setQuizParticipantsMap] = useState<Record<string, QuizParticipantTelemetry[]>>({});
   const [quizSearchMap, setQuizSearchMap] = useState<Record<string, string>>({});
@@ -84,6 +86,16 @@ export default function AdminDashboard() {
   const [selectedAnalyticsQuizId, setSelectedAnalyticsQuizId] = useState<string | null>(null);
   const [quizAnalyticsData, setQuizAnalyticsData] = useState<QuizItemAnalysisResponse | null>(null);
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState<boolean>(false);
+
+  // Quiz Update Modal State
+  const [selectedUpdateQuiz, setSelectedUpdateQuiz] = useState<Quiz | null>(null);
+  const [updateFormData, setUpdateFormData] = useState<UpdateQuizRequest>({
+    status: "pending",
+    shuffle_questions: false,
+    allow_synchronous: false,
+  });
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   const btnBase = "px-3 sm:px-4 py-2 font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider uppercase transition-colors cursor-pointer shadow-md inline-flex items-center justify-center whitespace-nowrap";
 
@@ -118,7 +130,6 @@ export default function AdminDashboard() {
     fetchDashboardData();
   }, []);
 
-  // Fetch expanded analytics & participants when a quiz is expanded in ADMIN mode
   useEffect(() => {
     if (!expandedQuizId || viewMode !== "ADMIN") return;
 
@@ -197,23 +208,63 @@ export default function AdminDashboard() {
     setExpandedQuizId((prev) => (prev === id ? null : id));
   };
 
+  const openUpdateModal = (quiz: Quiz) => {
+    setSelectedUpdateQuiz(quiz);
+    setUpdateFormData({
+      status: (quiz.status || "pending").toLowerCase(),
+      shuffle_questions: quiz.shuffle_questions ?? true,
+      allow_synchronous: quiz.allow_synchronous ?? true,
+    });
+    setUpdateError(null);
+  };
+
+  const handleUpdateQuizSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedUpdateQuiz) return;
+
+    const targetQuizId = selectedUpdateQuiz.id || (selectedUpdateQuiz as any)._id;
+
+    try {
+      setIsUpdating(true);
+      setUpdateError(null);
+
+      const updatedRes = await updateQuizApi(targetQuizId, updateFormData);
+
+      // Instantly sync dashboard state locally
+      setQuizzes((prevQuizzes) =>
+        prevQuizzes.map((q) => {
+          const qId = q.id || (q as any)._id;
+          return qId === targetQuizId
+            ? { ...q, ...updateFormData, ...(updatedRes || {}) }
+            : q;
+        })
+      );
+
+      setSelectedUpdateQuiz(null);
+    } catch (err: any) {
+      setUpdateError(err?.response?.data?.message || "FAILED TO UPDATE QUIZ CONFIGURATION");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const formatTimestamp = (dateStr?: string) => {
     if (!dateStr) return "N/A";
     try {
       const parsed = new Date(dateStr);
       if (isNaN(parsed.getTime())) return dateStr;
-      const month = parsed.getUTCMonth() + 1;
-      const day = parsed.getUTCDate();
-      const year = parsed.getUTCFullYear();
-      let hours = parsed.getUTCHours();
-      const minutes = parsed.getUTCMinutes();
-      const seconds = parsed.getUTCSeconds();
+      const month = parsed.getMonth() + 1;
+      const day = parsed.getDate();
+      const year = parsed.getFullYear();
+      let hours = parsed.getHours();
+      const minutes = parsed.getMinutes();
+      const seconds = parsed.getSeconds();
       const ampm = hours >= 12 ? "PM" : "AM";
       hours = hours % 12;
       hours = hours ? hours : 12;
       const minStr = minutes < 10 ? `0${minutes}` : minutes;
       const secStr = seconds < 10 ? `0${seconds}` : seconds;
-      return `${month}/${day}/${year}, ${hours}:${minStr}:${secStr} ${ampm} UTC`;
+      return `${month}/${day}/${year}, ${hours}:${minStr}:${secStr} ${ampm}`;
     } catch {
       return dateStr;
     }
@@ -270,11 +321,12 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-between p-4 sm:p-8 pb-28 select-none overflow-x-hidden">
       <div className="w-full flex flex-col items-center">
+        
         {/* Header Section */}
-        <header className="group relative w-full max-w-4xl my-6 flex flex-col sm:flex-row items-center justify-between p-6 transition-all duration-200 ease-out hover:translate-x-1 gap-4">
-          <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-          <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-          <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+        <header className="group relative isolate w-full max-w-4xl my-6 flex flex-col sm:flex-row items-center justify-between p-6 transition-all duration-200 ease-out hover:translate-x-1 gap-4">
+          <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-8 transition-transform"></div>
+          <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+19px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+          <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+34px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
           <div className="z-10">
             <h1 className="font-extrabold italic text-3xl sm:text-5xl text-p3-primary font-kanit -skew-x-8 tracking-wide">
@@ -310,100 +362,100 @@ export default function AdminDashboard() {
         <main className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           {viewMode === "ADMIN" ? (
             <>
-              <div className="group relative p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
+              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
                 <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider">
+                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
                   TOTAL ASSESSMENTS
                 </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2">
+                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
                   {adminMetrics?.total_quizzes_created ?? quizzes.length}
                 </span>
-                <span className="font-jakarta text-xs text-p3-muted italic">
+                <span className="font-jakarta text-xs text-p3-muted italic z-10">
                   CREATED MODULES
                 </span>
               </div>
 
-              <div className="group relative p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
+              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
                 <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider">
+                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
                   REGISTERED USERS
                 </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2">
+                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
                   {adminMetrics?.total_registered_users ?? 0}
                 </span>
-                <span className="font-jakarta text-xs text-p3-muted italic">
+                <span className="font-jakarta text-xs text-p3-muted italic z-10">
                   TOTAL ACCOUNTS
                 </span>
               </div>
 
-              <div className="group relative p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
+              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
                 <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider">
+                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
                   LIVE ACTIVE ATTEMPTS
                 </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2">
+                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
                   {adminMetrics?.live_active_attempts ?? 0}
                 </span>
-                <span className="font-jakarta text-xs text-p3-muted italic">
+                <span className="font-jakarta text-xs text-p3-muted italic z-10">
                   IN-PROGRESS SESSIONS
                 </span>
               </div>
             </>
           ) : (
             <>
-              <div className="group relative p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
+              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
                 <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider">
+                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
                   TOTAL COMPLETED
                 </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2">
+                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
                   {userQuizzesCompleted}
                 </span>
-                <span className="font-jakarta text-xs text-p3-muted italic">
+                <span className="font-jakarta text-xs text-p3-muted italic z-10">
                   QUIZZES
                 </span>
               </div>
 
-              <div className="group relative p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
+              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
                 <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider">
+                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
                   LIFETIME ACCURACY
                 </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2">
+                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
                   {userAccuracy}%
                 </span>
-                <span className="font-jakarta text-xs text-p3-muted italic">
+                <span className="font-jakarta text-xs text-p3-muted italic z-10">
                   AVERAGE RATE
                 </span>
               </div>
 
-              <div className="group relative p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
+              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
                 <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider">
+                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
                   PRESSURE SCORE
                 </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2">
+                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
                   {userPressureScore > 0 ? userPressureScore.toFixed(2) : "0.00"}
                 </span>
-                <span className="font-jakarta text-xs text-p3-muted italic">
+                <span className="font-jakarta text-xs text-p3-muted italic z-10">
                   INDEX RATING
                 </span>
               </div>
@@ -451,7 +503,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-10 mb-16">
+          <div className="grid grid-cols-1 gap-6 mb-16">
             {filteredQuizzes.length === 0 ? (
               <div className="relative p-8 text-center border-2 border-dashed border-p3-muted/40">
                 <p className="font-rajdhani font-bold italic text-sm text-p3-muted">
@@ -484,13 +536,15 @@ export default function AdminDashboard() {
                 return (
                   <div
                     key={quizId}
-                    className="group relative p-6 flex flex-col transition-all duration-200 ease-out hover:translate-x-1 mb-4"
+                    className="group relative isolate p-6 flex flex-col transition-all duration-200 ease-out hover:translate-x-1 mb-6"
                   >
-                    <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                    <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                    <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+                    {/* Background Accent Layers */}
+                    <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:skew-x-4 transition-transform"></div>
+                    <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+                    <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
                     <div className="z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      {/* Card Header Content */}
                       <div className="flex flex-col max-w-xl min-w-0">
                         <div className="flex items-center space-x-2 mb-1.5 flex-wrap gap-y-1">
                           <span className={`px-2 py-0.5 text-[10px] font-jakarta font-black -skew-x-8 tracking-widest uppercase border ${getStatusBadgeStyle(quizStatus)}`}>
@@ -510,6 +564,7 @@ export default function AdminDashboard() {
                         </p>
                       </div>
 
+                      {/* Action Buttons */}
                       <div className="flex items-center gap-2 flex-nowrap shrink-0 self-end md:self-center">
                         <button
                           onClick={() => toggleMoreInfo(quizId)}
@@ -530,10 +585,10 @@ export default function AdminDashboard() {
                               LIVE
                             </button>
                             <button
-                              onClick={() => navigate(`/admin/quiz/${quizId}/edit`)}
+                              onClick={() => openUpdateModal(quiz)}
                               className={`${btnBase} bg-p3-primary text-p3-highlight hover:bg-p3-surface hover:text-p3-primary`}
                             >
-                              EDIT
+                              UPDATE NOW
                             </button>
                             <button
                               onClick={() => {
@@ -556,6 +611,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
+                    {/* Accordion Telemetry & Details Content */}
                     {isExpanded && (
                       <div className="z-10 mt-5 pt-4 border-t border-p3-primary/20 space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-6">
@@ -606,7 +662,7 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
-                        {/* Overall Analytics & Participant Telemetry (Admin Only) */}
+                        {/* Overall Analytics & Participant Telemetry (Admin Mode) */}
                         {viewMode === "ADMIN" && (
                           <div className="mt-6 pt-4 border-t border-p3-primary/30 space-y-5">
                             <div className="flex items-center justify-between">
@@ -715,6 +771,131 @@ export default function AdminDashboard() {
           </div>
         </section>
       </div>
+
+      {/* QUIZ UPDATE MODAL */}
+      {selectedUpdateQuiz && (
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
+          <div className="relative bg-p3-surface p-6 sm:p-8 max-w-lg w-full border-2 border-p3-primary shadow-[0_0_35px_rgba(59,130,246,0.4)] -skew-x-2 my-8 max-h-[90vh] overflow-y-auto">
+            
+            <div className="flex items-center justify-between border-b border-p3-primary/20 pb-4 mb-6">
+              <div>
+                <span className="text-[10px] font-jakarta font-black uppercase text-p3-accent tracking-widest">
+                  ASSESSMENT RECONFIGURATION
+                </span>
+                <h3 className="font-kanit font-extrabold italic text-2xl text-p3-primary uppercase">
+                  UPDATE QUIZ
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedUpdateQuiz(null)}
+                className="text-p3-muted hover:text-p3-primary font-jakarta font-extrabold text-xs uppercase"
+              >
+                CLOSE [X]
+              </button>
+            </div>
+
+            {updateError && (
+              <div className="mb-4 p-3 bg-red-600/20 border border-red-500 text-red-400 font-jakarta text-xs italic font-bold">
+                {updateError}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateQuizSubmit} className="space-y-5 font-jakarta">
+              
+              {/* Quiz Identifier Info */}
+              <div className="p-3 bg-p3-background/60 border border-p3-primary/20 text-xs">
+                <span className="block font-rajdhani font-bold text-p3-muted uppercase">QUIZ TITLE:</span>
+                <span className="font-kanit font-extrabold text-p3-primary text-base italic">{selectedUpdateQuiz.title}</span>
+              </div>
+
+              {/* Status Selector */}
+              <div>
+                <label className="block font-rajdhani font-bold italic text-xs text-p3-muted uppercase tracking-wider mb-2">
+                  STATUS
+                </label>
+                <select
+                  value={updateFormData.status}
+                  onChange={(e) =>
+                    setUpdateFormData((prev) => ({ ...prev, status: e.target.value }))
+                  }
+                  className="w-full bg-p3-background border border-p3-primary/40 px-3 py-2 font-kanit font-extrabold italic text-sm text-p3-primary focus:outline-none focus:border-p3-primary uppercase cursor-pointer"
+                >
+                  <option value="pending" className="bg-p3-surface text-amber-400">PENDING</option>
+                  <option value="published" className="bg-p3-surface text-cyan-400">PUBLISHED</option>
+                  <option value="active" className="bg-p3-surface text-emerald-400">ACTIVE</option>
+                  <option value="completed" className="bg-p3-surface text-purple-400">COMPLETED</option>
+                  <option value="expired" className="bg-p3-surface text-red-400">EXPIRED</option>
+                </select>
+              </div>
+
+              {/* Checkboxes Options */}
+              <div className="space-y-3 pt-2">
+                <label className="flex items-center space-x-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={updateFormData.shuffle_questions}
+                    onChange={(e) =>
+                      setUpdateFormData((prev) => ({
+                        ...prev,
+                        shuffle_questions: e.target.checked,
+                      }))
+                    }
+                    className="w-4 h-4 accent-p3-primary cursor-pointer"
+                  />
+                  <span className="font-kanit font-extrabold italic text-sm text-p3-primary uppercase group-hover:text-p3-accent transition-colors">
+                    SHUFFLE QUESTIONS
+                  </span>
+                </label>
+
+                <label className="flex items-center space-x-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={updateFormData.allow_synchronous}
+                    onChange={(e) =>
+                      setUpdateFormData((prev) => ({
+                        ...prev,
+                        allow_synchronous: e.target.checked,
+                      }))
+                    }
+                    className="w-4 h-4 accent-p3-primary cursor-pointer"
+                  />
+                  <span className="font-kanit font-extrabold italic text-sm text-p3-primary uppercase group-hover:text-p3-accent transition-colors">
+                    ALLOW SYNCHRONOUS MODE
+                  </span>
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-p3-primary/20">
+                <button
+                  type="button"
+                  onClick={() => setSelectedUpdateQuiz(null)}
+                  className={`${btnBase} bg-p3-surface border border-p3-primary text-p3-primary hover:bg-p3-primary hover:text-p3-highlight`}
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className={`${btnBase} bg-emerald-400 text-slate-950 hover:bg-emerald-300 border border-emerald-300 shadow-[0_0_15px_rgba(52,211,153,0.5)] ${
+                    isUpdating ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {isUpdating ? "SENDING UPDATE..." : "SEND UPDATE"}
+                </button>
+              </div>
+
+            </form>
+
+            {/* Grant Quiz Access Component */}
+            <GrantQuizAccessSection
+              quizId={selectedUpdateQuiz.id || (selectedUpdateQuiz as any)._id}
+            />
+
+          </div>
+        </div>
+      )}
 
       {/* Live Telemetry Modal */}
       {selectedLiveQuizId && (
@@ -891,7 +1072,7 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      {/* Options Breakdown with Wrapped Badges */}
+                      {/* Options Breakdown */}
                       <div className="space-y-2 mt-2">
                         <span className="text-[10px] font-rajdhani font-bold uppercase text-p3-muted tracking-widest">
                           OPTIONS & USER SELECTIONS:

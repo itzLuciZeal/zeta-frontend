@@ -1,13 +1,18 @@
+// src/pages/dashboard/components/QuizList.tsx
 import { useEffect, useState, useMemo } from "react";
 import { getActiveQuizzesApi } from "../../../services/quiz.service";
+import { useQuiz } from "../../../context/QuizContext";
 import type { Quiz } from "../../../types/quiz.types";
 
 type FilterStatus = "ALL" | "ACTIVE" | "PUBLISHED" | "COMPLETED";
 
 export default function QuizList() {
+  const { startQuiz } = useQuiz();
+
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [startingQuizId, setStartingQuizId] = useState<string | null>(null);
 
   const [expandedQuizId, setExpandedQuizId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterStatus>("ALL");
@@ -44,6 +49,17 @@ export default function QuizList() {
     return isNaN(parsed.getTime()) ? new Date().toLocaleString() : parsed.toLocaleString();
   };
 
+  const handleInitiateQuiz = async (quizId: string) => {
+    try {
+      setStartingQuizId(quizId);
+      await startQuiz(quizId);
+    } catch (err) {
+      console.error("Failed to initiate quiz:", err);
+    } finally {
+      setStartingQuizId(null);
+    }
+  };
+
   // Status badge styling helper (matching Admin Dashboard)
   const getStatusBadgeStyle = (statusStr: string) => {
     switch (statusStr.toUpperCase()) {
@@ -65,12 +81,13 @@ export default function QuizList() {
     switch (status) {
       case "ACTIVE":
         return (
-          <a
-            href={`/quiz/${quizId}`}
-            className="px-5 py-2.5 bg-p3-primary text-p3-highlight font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider uppercase hover:bg-p3-surface hover:text-p3-primary transition-colors shadow-md text-center"
+          <button
+            disabled={startingQuizId === quizId}
+            onClick={() => handleInitiateQuiz(quizId)}
+            className="px-5 py-2.5 bg-p3-primary text-p3-highlight font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider uppercase hover:bg-p3-surface hover:text-p3-primary transition-colors shadow-md text-center cursor-pointer disabled:opacity-50"
           >
-            INITIATE NOW
-          </a>
+            {startingQuizId === quizId ? "INITIATING..." : "INITIATE NOW"}
+          </button>
         );
 
       case "PUBLISHED":
@@ -134,7 +151,6 @@ export default function QuizList() {
 
   return (
     <section className="w-full max-w-4xl mt-10 flex flex-col space-y-6">
-      
       {/* Section Header & Filter Control Bar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-2">
         <div>
@@ -201,13 +217,12 @@ export default function QuizList() {
                 className="group relative p-6 flex flex-col transition-all duration-200 ease-out hover:translate-x-1"
               >
                 {/* Styled Background Layers */}
-                <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 h-[104%] w-[105%] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 h-[108%] w-[110%] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+                <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:skew-x-4 transition-transform"></div>
+                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
                 {/* Main Card Content */}
                 <div className="z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                  
                   <div className="flex flex-col max-w-xl">
                     <div className="flex items-center space-x-2 mb-1.5 flex-wrap gap-y-1">
                       {/* Dynamic Status Badge */}
@@ -240,13 +255,11 @@ export default function QuizList() {
                     {/* DYNAMIC ACTION BUTTON */}
                     {renderQuizActionButton(quizId, quizStatus)}
                   </div>
-
                 </div>
 
                 {/* Expanded Telemetry Details */}
                 {isExpanded && (
                   <div className="z-10 mt-5 pt-4 border-t border-p3-primary/20 grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-6">
-                    
                     <div>
                       <span className="block font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider mb-0.5">
                         TIME PER QUESTION
@@ -292,16 +305,13 @@ export default function QuizList() {
                         {deployedAtText}
                       </span>
                     </div>
-
                   </div>
                 )}
-
               </div>
             );
           })
         )}
       </div>
-
     </section>
   );
 }

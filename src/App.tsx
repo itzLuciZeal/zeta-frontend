@@ -9,6 +9,7 @@ import ResendVerificationPage from "./pages/auth/ResendVerification";
 import VerifyEmailPage from "./pages/auth/VerifyEmail";
 import UserDashboard from "./pages/dashboard/UserDashboard";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
+import CreateQuiz from "./pages/admin/CreateQuiz";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
 
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/quiz/create" element={<CreateQuiz />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />
