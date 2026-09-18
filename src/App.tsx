@@ -10,6 +10,8 @@ import VerifyEmailPage from "./pages/auth/VerifyEmail";
 import UserDashboard from "./pages/dashboard/UserDashboard";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
 import CreateQuiz from "./pages/admin/CreateQuiz";
+import QuizPage from "./pages/quiz/QuizPage";
+import { QuizProvider } from "./context/QuizContext";
 
 export default function App() {
   return (
@@ -24,11 +26,26 @@ export default function App() {
         <Route path="/verify-email" element={<VerifyEmailPage />} />
 
         <Route element={<ProtectedRoute allowedRoles={["user", "admin"]} />}>
-          <Route path="/user/dashboard" element={<UserDashboard />} />
+          <Route 
+            path="/user/dashboard" 
+            element={
+              <QuizProvider>
+                <UserDashboard />
+              </QuizProvider>
+            } 
+          />
+          <Route path="/quiz/:quizId" element={<QuizPage />} />
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route 
+            path="/admin/dashboard" 
+            element={
+              <QuizProvider>
+                <AdminDashboard />
+              </QuizProvider>
+            } 
+          />
           <Route path="/admin/quiz/create" element={<CreateQuiz />} />
         </Route>
 

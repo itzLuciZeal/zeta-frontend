@@ -1,27 +1,36 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SubmitEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { 
   getAdminDashboardApi, 
-  getUserDashboardApi, 
   getLiveQuizSessionApi,
   getQuizOverallAnalyticsApi,
   getQuizParticipantsApi,
 } from "../../services/dashboard.service";
 import type { QuizParticipantTelemetry, QuizOverallAnalytics } from "../../types/dashboard.types";
-import { getActiveQuizzesApi, updateQuizApi } from "../../services/quiz.service";
+import { getActiveQuizzesApi, updateQuizApi, getAttemptResultsApi } from "../../services/quiz.service";
 import { fetchQuizItemAnalysis } from "../../services/analyticsService";
-import type { Quiz, UpdateQuizRequest } from "../../types/quiz.types";
+import type { Quiz, UpdateQuizRequest, QuizAttemptResultResponse } from "../../types/quiz.types";
 import type { QuizItemAnalysisResponse } from "../../types/analytics.types";
-import { type SubmitEvent } from "react";
+import { getPressureScoreBadge, getAccuracyBadge, getPacingVelocityBadge } from "../../utils/quizMetrics";
 import Footer from "../../components/ui/Footer";
 import GrantQuizAccessSection from "../admin/GrantQuizAccessSection";
 
-interface PerformanceSummary {
-  total_quizzes_completed: number;
-  lifetime_accuracy_rate: number;
-  lifetime_pressure_score: number;
-}
+type DashboardQuiz = Quiz & {
+  _id?: string;
+  time_limit?: number;
+  time_per_question?: number;
+  allow_backtrack?: boolean;
+  sync_mode?: string;
+  latest_completed_attempt_id?: string;
+  attempt_id?: string;
+  deployment_creator_id?: string;
+  creator_id?: string;
+  user_id?: string;
+  activated_at?: string;
+  deployed_at?: string;
+  published_at?: string;
+};
 
 interface AdminSystemMetrics {
   total_registered_users: number;
@@ -59,11 +68,8 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
 
-  const [viewMode, setViewMode] = useState<"ADMIN" | "USER">("ADMIN");
-
   const [adminMetrics, setAdminMetrics] = useState<AdminSystemMetrics | null>(null);
-  const [userMetrics, setUserMetrics] = useState<PerformanceSummary | null>(null);
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizzes, setQuizzes] = useState<DashboardQuiz[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,8 +93,13 @@ export default function AdminDashboard() {
   const [quizAnalyticsData, setQuizAnalyticsData] = useState<QuizItemAnalysisResponse | null>(null);
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState<boolean>(false);
 
+  // Quiz Results Modal State
+  const [selectedResultAttemptId, setSelectedResultAttemptId] = useState<string | null>(null);
+  const [attemptResultData, setAttemptResultData] = useState<QuizAttemptResultResponse | null>(null);
+  const [isResultLoading, setIsResultLoading] = useState<boolean>(false);
+
   // Quiz Update Modal State
-  const [selectedUpdateQuiz, setSelectedUpdateQuiz] = useState<Quiz | null>(null);
+  const [selectedUpdateQuiz, setSelectedUpdateQuiz] = useState<DashboardQuiz | null>(null);
   const [updateFormData, setUpdateFormData] = useState<UpdateQuizRequest>({
     status: "pending",
     shuffle_questions: false,
@@ -103,9 +114,8 @@ export default function AdminDashboard() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const [adminData, userData, quizData] = await Promise.all([
+        const [adminData, quizData] = await Promise.all([
           getAdminDashboardApi().catch(() => null),
-          getUserDashboardApi().catch(() => null),
           getActiveQuizzesApi().catch(() => []),
         ]);
 
@@ -114,13 +124,8 @@ export default function AdminDashboard() {
           setAdminMetrics(systemMetrics as AdminSystemMetrics);
         }
         
-        if (userData) {
-          const performance = userData.performance_summary || userData;
-          setUserMetrics(performance as PerformanceSummary);
-        }
-        
-        setQuizzes(quizData);
-      } catch (err: any) {
+        setQuizzes(quizData as DashboardQuiz[]);
+      } catch {
         setError("FAILED TO SYNC DASHBOARD DATA");
       } finally {
         setLoading(false);
@@ -131,7 +136,7 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!expandedQuizId || viewMode !== "ADMIN") return;
+    if (!expandedQuizId) return;
 
     const fetchExpandedData = async (searchQuery?: string) => {
       try {
@@ -154,7 +159,7 @@ export default function AdminDashboard() {
 
     const currentQuery = quizSearchMap[expandedQuizId] || "";
     fetchExpandedData(currentQuery);
-  }, [expandedQuizId, viewMode, quizSearchMap]);
+  }, [expandedQuizId, quizSearchMap]);
 
   useEffect(() => {
     if (!selectedLiveQuizId) return;
@@ -194,12 +199,30 @@ export default function AdminDashboard() {
     fetchAnalytics();
   }, [selectedAnalyticsQuizId]);
 
+  useEffect(() => {
+    if (!selectedResultAttemptId) return;
+
+    const fetchResults = async () => {
+      try {
+        setIsResultLoading(true);
+        const data = await getAttemptResultsApi(selectedResultAttemptId);
+        setAttemptResultData(data);
+      } catch (err) {
+        console.error("Failed to fetch attempt results:", err);
+        setAttemptResultData(null);
+      } finally {
+        setIsResultLoading(false);
+      }
+    };
+
+    fetchResults();
+  }, [selectedResultAttemptId]);
+
   const confirmLogout = async () => {
     try {
       await logout();
       navigate("/login");
-    } catch (err) {
-      console.error("Logout failed:", err);
+    } catch {
       navigate("/login");
     }
   };
@@ -208,7 +231,7 @@ export default function AdminDashboard() {
     setExpandedQuizId((prev) => (prev === id ? null : id));
   };
 
-  const openUpdateModal = (quiz: Quiz) => {
+  const openUpdateModal = (quiz: DashboardQuiz) => {
     setSelectedUpdateQuiz(quiz);
     setUpdateFormData({
       status: (quiz.status || "pending").toLowerCase(),
@@ -222,7 +245,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!selectedUpdateQuiz) return;
 
-    const targetQuizId = selectedUpdateQuiz.id || (selectedUpdateQuiz as any)._id;
+    const targetQuizId = selectedUpdateQuiz.id || selectedUpdateQuiz._id || "";
 
     try {
       setIsUpdating(true);
@@ -230,10 +253,9 @@ export default function AdminDashboard() {
 
       const updatedRes = await updateQuizApi(targetQuizId, updateFormData);
 
-      // Instantly sync dashboard state locally
       setQuizzes((prevQuizzes) =>
         prevQuizzes.map((q) => {
-          const qId = q.id || (q as any)._id;
+          const qId = q.id || q._id;
           return qId === targetQuizId
             ? { ...q, ...updateFormData, ...(updatedRes || {}) }
             : q;
@@ -241,8 +263,9 @@ export default function AdminDashboard() {
       );
 
       setSelectedUpdateQuiz(null);
-    } catch (err: any) {
-      setUpdateError(err?.response?.data?.message || "FAILED TO UPDATE QUIZ CONFIGURATION");
+    } catch (err: unknown) {
+      const errorMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setUpdateError(errorMsg || "FAILED TO UPDATE QUIZ CONFIGURATION");
     } finally {
       setIsUpdating(false);
     }
@@ -281,13 +304,13 @@ export default function AdminDashboard() {
       case "COMPLETED":
         return "bg-purple-600 text-white border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]";
       case "EXPIRED":
-        return "bg-red-600 text-white border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.4)]";
+        return "bg-rose-600 text-white border-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.4)]";
       default:
         return "bg-p3-primary text-p3-highlight border-p3-accent";
     }
   };
 
-  const filteredQuizzes = quizzes.filter((quiz: any) => {
+  const filteredQuizzes = quizzes.filter((quiz) => {
     if (activeFilter === "ALL") return true;
     const status = (quiz.status || "PENDING").toUpperCase();
     return status === activeFilter;
@@ -314,10 +337,6 @@ export default function AdminDashboard() {
   const adminId = user?.id || "ADM-9942";
   const username = user?.username || user?.email || "OPERATOR";
 
-  const userQuizzesCompleted = userMetrics?.total_quizzes_completed ?? 0;
-  const userAccuracy = userMetrics?.lifetime_accuracy_rate ?? 0;
-  const userPressureScore = userMetrics?.lifetime_pressure_score ?? 0;
-
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-between p-4 sm:p-8 pb-28 select-none overflow-x-hidden">
       <div className="w-full flex flex-col items-center">
@@ -330,24 +349,20 @@ export default function AdminDashboard() {
 
           <div className="z-10">
             <h1 className="font-extrabold italic text-3xl sm:text-5xl text-p3-primary font-kanit -skew-x-8 tracking-wide">
-              {viewMode === "ADMIN" ? "ADMIN DASHBOARD" : "USER DASHBOARD"}
+              ADMIN DASHBOARD
             </h1>
             <p className="font-rajdhani font-bold italic text-xs sm:text-sm text-p3-muted -skew-x-6 uppercase tracking-wider mt-1">
-              MODE: {viewMode} | USER: <span className="text-p3-primary font-extrabold">{username}</span> | ID: <span className="text-p3-primary font-extrabold">{adminId}</span>
+              USER: <span className="text-p3-primary font-extrabold">{username}</span> | ID: <span className="text-p3-primary font-extrabold">{adminId}</span>
             </p>
           </div>
 
           <div className="z-10 flex items-center gap-2 flex-nowrap shrink-0 justify-center sm:justify-end">
             <button
-              onClick={() => setViewMode((prev) => (prev === "ADMIN" ? "USER" : "ADMIN"))}
+              onClick={() => navigate("/user/dashboard")}
               className={`${btnBase} bg-p3-accent text-p3-primary hover:bg-p3-primary hover:text-p3-highlight border border-p3-primary`}
             >
-              {viewMode === "ADMIN" ? "USER VIEW" : "ADMIN VIEW"}
+              USER VIEW
             </button>
-
-            <div className={`${btnBase} bg-p3-primary text-p3-highlight cursor-default shadow-none`}>
-              MODE: {viewMode}
-            </div>
 
             <button
               onClick={() => setIsLogoutModalOpen(true)}
@@ -360,107 +375,53 @@ export default function AdminDashboard() {
 
         {/* Metrics Grid */}
         <main className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-          {viewMode === "ADMIN" ? (
-            <>
-              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
-                <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+          <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
+            <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
+            <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+            <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
-                  TOTAL ASSESSMENTS
-                </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
-                  {adminMetrics?.total_quizzes_created ?? quizzes.length}
-                </span>
-                <span className="font-jakarta text-xs text-p3-muted italic z-10">
-                  CREATED MODULES
-                </span>
-              </div>
+            <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
+              TOTAL ASSESSMENTS
+            </span>
+            <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
+              {adminMetrics?.total_quizzes_created ?? quizzes.length}
+            </span>
+            <span className="font-jakarta text-xs text-p3-muted italic z-10">
+              CREATED MODULES
+            </span>
+          </div>
 
-              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
-                <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+          <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
+            <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
+            <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+            <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
-                  REGISTERED USERS
-                </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
-                  {adminMetrics?.total_registered_users ?? 0}
-                </span>
-                <span className="font-jakarta text-xs text-p3-muted italic z-10">
-                  TOTAL ACCOUNTS
-                </span>
-              </div>
+            <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
+              REGISTERED USERS
+            </span>
+            <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
+              {adminMetrics?.total_registered_users ?? 0}
+            </span>
+            <span className="font-jakarta text-xs text-p3-muted italic z-10">
+              TOTAL ACCOUNTS
+            </span>
+          </div>
 
-              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
-                <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
+          <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
+            <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
+            <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
+            <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
-                  LIVE ACTIVE ATTEMPTS
-                </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
-                  {adminMetrics?.live_active_attempts ?? 0}
-                </span>
-                <span className="font-jakarta text-xs text-p3-muted italic z-10">
-                  IN-PROGRESS SESSIONS
-                </span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
-                <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
-
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
-                  TOTAL COMPLETED
-                </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
-                  {userQuizzesCompleted}
-                </span>
-                <span className="font-jakarta text-xs text-p3-muted italic z-10">
-                  QUIZZES
-                </span>
-              </div>
-
-              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
-                <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
-
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
-                  LIFETIME ACCURACY
-                </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
-                  {userAccuracy}%
-                </span>
-                <span className="font-jakarta text-xs text-p3-muted italic z-10">
-                  AVERAGE RATE
-                </span>
-              </div>
-
-              <div className="group relative isolate p-6 flex flex-col items-center justify-center min-h-40 transition-all duration-200 ease-out hover:scale-[1.02] hover:-translate-y-1 cursor-pointer">
-                <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:-skew-x-6 transition-transform"></div>
-                <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
-                <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
-
-                <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
-                  PRESSURE SCORE
-                </span>
-                <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
-                  {userPressureScore > 0 ? userPressureScore.toFixed(2) : "0.00"}
-                </span>
-                <span className="font-jakarta text-xs text-p3-muted italic z-10">
-                  INDEX RATING
-                </span>
-              </div>
-            </>
-          )}
+            <span className="font-rajdhani font-bold italic text-xs text-p3-muted -skew-x-6 uppercase tracking-wider z-10">
+              LIVE ACTIVE ATTEMPTS
+            </span>
+            <span className="font-kanit font-extrabold italic text-4xl sm:text-5xl text-p3-primary -skew-x-8 my-2 z-10">
+              {adminMetrics?.live_active_attempts ?? 0}
+            </span>
+            <span className="font-jakarta text-xs text-p3-muted italic z-10">
+              IN-PROGRESS SESSIONS
+            </span>
+          </div>
         </main>
 
         {/* Assessment Module List */}
@@ -468,7 +429,7 @@ export default function AdminDashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
             <div>
               <h2 className="font-kanit font-extrabold italic text-xl sm:text-2xl text-p3-primary -skew-x-6 tracking-wide">
-                {viewMode === "ADMIN" ? "SYSTEM ASSESSMENTS" : "AVAILABLE ASSESSMENTS"}
+                SYSTEM ASSESSMENTS
               </h2>
               <p className="font-rajdhani font-bold italic text-xs text-p3-muted uppercase tracking-wider">
                 SHOWING: {filteredQuizzes.length} OF {quizzes.length} ACTIVE
@@ -476,14 +437,12 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
-              {viewMode === "ADMIN" && (
-                <button
-                  onClick={() => navigate("/admin/quiz/create")}
-                  className={`${btnBase} bg-emerald-400 text-slate-950 hover:bg-emerald-300 border border-emerald-300 shadow-[0_0_15px_rgba(52,211,153,0.5)] flex items-center gap-1.5`}
-                >
-                  <span className="text-base font-black leading-none">+</span> CREATE QUIZ
-                </button>
-              )}
+              <button
+                onClick={() => navigate("/admin/quiz/create")}
+                className={`${btnBase} bg-emerald-400 text-slate-950 hover:bg-emerald-300 border border-emerald-300 shadow-[0_0_15px_rgba(52,211,153,0.5)] flex items-center gap-1.5`}
+              >
+                <span className="text-base font-black leading-none">+</span> CREATE QUIZ
+              </button>
 
               <div className="flex items-center gap-1.5 flex-wrap">
                 {["ALL", "ACTIVE", "PUBLISHED", "PENDING", "COMPLETED"].map((filter) => (
@@ -511,8 +470,8 @@ export default function AdminDashboard() {
                 </p>
               </div>
             ) : (
-              filteredQuizzes.map((quiz: any) => {
-                const quizId = quiz.id || quiz._id;
+              filteredQuizzes.map((quiz) => {
+                const quizId = quiz.id || quiz._id || "";
                 const isExpanded = expandedQuizId === quizId;
                 const quizStatus = quiz.status || "PENDING";
 
@@ -538,13 +497,11 @@ export default function AdminDashboard() {
                     key={quizId}
                     className="group relative isolate p-6 flex flex-col transition-all duration-200 ease-out hover:translate-x-1 mb-6"
                   >
-                    {/* Background Accent Layers */}
                     <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:skew-x-4 transition-transform"></div>
                     <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
                     <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
                     <div className="z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                      {/* Card Header Content */}
                       <div className="flex flex-col max-w-xl min-w-0">
                         <div className="flex items-center space-x-2 mb-1.5 flex-wrap gap-y-1">
                           <span className={`px-2 py-0.5 text-[10px] font-jakarta font-black -skew-x-8 tracking-widest uppercase border ${getStatusBadgeStyle(quizStatus)}`}>
@@ -564,7 +521,6 @@ export default function AdminDashboard() {
                         </p>
                       </div>
 
-                      {/* Action Buttons */}
                       <div className="flex items-center gap-2 flex-nowrap shrink-0 self-end md:self-center">
                         <button
                           onClick={() => toggleMoreInfo(quizId)}
@@ -573,45 +529,33 @@ export default function AdminDashboard() {
                           {isExpanded ? "HIDE DETAILS ▲" : "MORE INFO ▼"}
                         </button>
 
-                        {viewMode === "ADMIN" ? (
-                          <>
-                            <button
-                              onClick={() => {
-                                setSelectedLiveQuizId(quizId);
-                                setIsLiveModalLoading(true);
-                              }}
-                              className={`${btnBase} bg-emerald-400 text-slate-950 hover:bg-emerald-300 border border-emerald-300`}
-                            >
-                              LIVE
-                            </button>
-                            <button
-                              onClick={() => openUpdateModal(quiz)}
-                              className={`${btnBase} bg-p3-primary text-p3-highlight hover:bg-p3-surface hover:text-p3-primary`}
-                            >
-                              UPDATE NOW
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedAnalyticsQuizId(quizId);
-                                setIsAnalyticsLoading(true);
-                              }}
-                              className={`${btnBase} bg-p3-accent text-p3-primary hover:bg-p3-primary hover:text-p3-highlight border border-p3-primary`}
-                            >
-                              ANALYTICS
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => navigate(`/quiz/${quizId}`)}
-                            className={`${btnBase} bg-p3-primary text-p3-highlight hover:bg-p3-surface hover:text-p3-primary`}
-                          >
-                            {quizStatus === "COMPLETED" ? "VIEW RESULTS" : "START ASSESSMENT"}
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedLiveQuizId(quizId);
+                            setIsLiveModalLoading(true);
+                          }}
+                          className={`${btnBase} bg-emerald-400 text-slate-950 hover:bg-emerald-300 border border-emerald-300`}
+                        >
+                          LIVE
+                        </button>
+                        <button
+                          onClick={() => openUpdateModal(quiz)}
+                          className={`${btnBase} bg-p3-primary text-p3-highlight hover:bg-p3-surface hover:text-p3-primary`}
+                        >
+                          UPDATE NOW
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAnalyticsQuizId(quizId);
+                            setIsAnalyticsLoading(true);
+                          }}
+                          className={`${btnBase} bg-p3-accent text-p3-primary hover:bg-p3-primary hover:text-p3-highlight border border-p3-primary`}
+                        >
+                          ANALYTICS
+                        </button>
                       </div>
                     </div>
 
-                    {/* Accordion Telemetry & Details Content */}
                     {isExpanded && (
                       <div className="z-10 mt-5 pt-4 border-t border-p3-primary/20 space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-6">
@@ -662,106 +606,101 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
-                        {/* Overall Analytics & Participant Telemetry (Admin Mode) */}
-                        {viewMode === "ADMIN" && (
-                          <div className="mt-6 pt-4 border-t border-p3-primary/30 space-y-5">
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-kanit font-extrabold italic text-base text-p3-primary uppercase tracking-wide">
-                                [ OVERALL QUIZ TELEMETRY & PARTICIPANTS ]
-                              </h4>
-                              {isExpandedLoading && (
-                                <span className="text-xs font-jakarta italic text-p3-accent animate-pulse">
-                                  SYNCING ANALYTICS...
-                                </span>
-                              )}
+                        <div className="mt-6 pt-4 border-t border-p3-primary/30 space-y-5">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-kanit font-extrabold italic text-base text-p3-primary uppercase tracking-wide">
+                              [ OVERALL QUIZ TELEMETRY & PARTICIPANTS ]
+                            </h4>
+                            {isExpandedLoading && (
+                              <span className="text-xs font-jakarta italic text-p3-accent animate-pulse">
+                                SYNCING ANALYTICS...
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            <div className="p-3 bg-p3-background border border-p3-primary/20 text-center">
+                              <span className="block text-[10px] font-rajdhani text-p3-muted">TOTAL PARTICIPANTS</span>
+                              <span className="font-kanit font-extrabold text-2xl text-p3-primary">{analytics?.total_participants ?? 0}</span>
                             </div>
-
-                            {/* Overall Summary Cards */}
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                              <div className="p-3 bg-p3-background border border-p3-primary/20 text-center">
-                                <span className="block text-[10px] font-rajdhani text-p3-muted">TOTAL PARTICIPANTS</span>
-                                <span className="font-kanit font-extrabold text-2xl text-p3-primary">{analytics?.total_participants ?? 0}</span>
-                              </div>
-                              <div className="p-3 bg-p3-background border border-p3-primary/20 text-center">
-                                <span className="block text-[10px] font-rajdhani text-p3-muted">COMPLETION RATE</span>
-                                <span className="font-kanit font-extrabold text-2xl text-emerald-400">{analytics?.completion_rate ?? 0}%</span>
-                              </div>
-                              <div className="p-3 bg-p3-background border border-p3-primary/20 text-center">
-                                <span className="block text-[10px] font-rajdhani text-p3-muted">MEAN ACCURACY</span>
-                                <span className="font-kanit font-extrabold text-2xl text-cyan-400">{analytics?.mean_accuracy_score ?? 0}%</span>
-                              </div>
-                              <div className="p-3 bg-p3-background border border-p3-primary/20 text-center">
-                                <span className="block text-[10px] font-rajdhani text-p3-muted">MEAN RESPONSE TIME</span>
-                                <span className="font-kanit font-extrabold text-2xl text-amber-400">{analytics?.mean_response_time ?? 0}S</span>
-                              </div>
-                              <div className="p-3 bg-p3-background border border-p3-primary/20 text-center col-span-2 sm:col-span-1">
-                                <span className="block text-[10px] font-rajdhani text-p3-muted">MEAN PRESSURE</span>
-                                <span className="font-kanit font-extrabold text-2xl text-purple-400">{analytics?.mean_pressure_score ?? 0}</span>
-                              </div>
+                            <div className="p-3 bg-p3-background border border-p3-primary/20 text-center">
+                              <span className="block text-[10px] font-rajdhani text-p3-muted">COMPLETION RATE</span>
+                              <span className="font-kanit font-extrabold text-2xl text-emerald-400">{analytics?.completion_rate ?? 0}%</span>
                             </div>
-
-                            {/* Participants Search & Table */}
-                            <div className="space-y-3 pt-2">
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                                <span className="font-rajdhani font-bold italic text-xs text-p3-muted uppercase">
-                                  PARTICIPANTS ROSTER ({participants.length})
-                                </span>
-                                <div className="w-full sm:w-72">
-                                  <input
-                                    type="text"
-                                    placeholder="Search by username or email..."
-                                    value={searchQuery}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setQuizSearchMap((prev) => ({ ...prev, [quizId]: val }));
-                                    }}
-                                    className="w-full bg-p3-background border border-p3-primary/30 px-3 py-1.5 font-jakarta text-xs text-p3-primary placeholder:text-p3-muted focus:outline-none focus:border-p3-primary"
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="overflow-x-auto border border-p3-primary/20 bg-p3-background/40">
-                                <table className="w-full text-left border-collapse">
-                                  <thead>
-                                    <tr className="bg-p3-background font-rajdhani font-bold text-xs text-p3-muted uppercase tracking-wider border-b border-p3-primary/20">
-                                      <th className="p-2.5">User</th>
-                                      <th className="p-2.5">Status</th>
-                                      <th className="p-2.5">Accuracy</th>
-                                      <th className="p-2.5">Avg Time</th>
-                                      <th className="p-2.5">Pressure</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="font-jakarta text-xs divide-y divide-p3-primary/10">
-                                    {participants.length > 0 ? (
-                                      participants.map((p, idx) => (
-                                        <tr key={idx} className="hover:bg-p3-background/60 transition-colors">
-                                          <td className="p-2.5">
-                                            <div className="font-bold text-p3-primary">{p.username}</div>
-                                            <div className="text-[10px] text-p3-muted">{p.email}</div>
-                                          </td>
-                                          <td className="p-2.5">
-                                            <span className={`px-2 py-0.5 text-[10px] font-black uppercase border ${getStatusBadgeStyle(p.status)}`}>
-                                              {p.status}
-                                            </span>
-                                          </td>
-                                          <td className="p-2.5 font-bold text-cyan-400">{p.accuracy_rate}%</td>
-                                          <td className="p-2.5 font-bold text-amber-400">{p.avg_response_time}s</td>
-                                          <td className="p-2.5 font-bold text-purple-400">{p.pressure_score}</td>
-                                        </tr>
-                                      ))
-                                    ) : (
-                                      <tr>
-                                        <td colSpan={5} className="p-4 text-center text-p3-muted italic">
-                                          [ NO PARTICIPANTS FOUND MATCHING QUERY ]
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
+                            <div className="p-3 bg-p3-background border border-p3-primary/20 text-center">
+                              <span className="block text-[10px] font-rajdhani text-p3-muted">MEAN ACCURACY</span>
+                              <span className="font-kanit font-extrabold text-2xl text-cyan-400">{analytics?.mean_accuracy_score ?? 0}%</span>
+                            </div>
+                            <div className="p-3 bg-p3-background border border-p3-primary/20 text-center">
+                              <span className="block text-[10px] font-rajdhani text-p3-muted">MEAN RESPONSE TIME</span>
+                              <span className="font-kanit font-extrabold text-2xl text-amber-400">{analytics?.mean_response_time ?? 0}S</span>
+                            </div>
+                            <div className="p-3 bg-p3-background border border-p3-primary/20 text-center col-span-2 sm:col-span-1">
+                              <span className="block text-[10px] font-rajdhani text-p3-muted">MEAN PRESSURE</span>
+                              <span className="font-kanit font-extrabold text-2xl text-purple-400">{analytics?.mean_pressure_score ?? 0}</span>
                             </div>
                           </div>
-                        )}
+
+                          <div className="space-y-3 pt-2">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                              <span className="font-rajdhani font-bold italic text-xs text-p3-muted uppercase">
+                                PARTICIPANTS ROSTER ({participants.length})
+                              </span>
+                              <div className="w-full sm:w-72">
+                                <input
+                                  type="text"
+                                  placeholder="Search by username or email..."
+                                  value={searchQuery}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setQuizSearchMap((prev) => ({ ...prev, [quizId]: val }));
+                                  }}
+                                  className="w-full bg-p3-background border border-p3-primary/30 px-3 py-1.5 font-jakarta text-xs text-p3-primary placeholder:text-p3-muted focus:outline-none focus:border-p3-primary"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="overflow-x-auto border border-p3-primary/20 bg-p3-background/40">
+                              <table className="w-full text-left border-collapse">
+                                <thead>
+                                  <tr className="bg-p3-background font-rajdhani font-bold text-xs text-p3-muted uppercase tracking-wider border-b border-p3-primary/20">
+                                    <th className="p-2.5">User</th>
+                                    <th className="p-2.5">Status</th>
+                                    <th className="p-2.5">Accuracy</th>
+                                    <th className="p-2.5">Avg Time</th>
+                                    <th className="p-2.5">Pressure</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="font-jakarta text-xs divide-y divide-p3-primary/10">
+                                  {participants.length > 0 ? (
+                                    participants.map((p, idx) => (
+                                      <tr key={idx} className="hover:bg-p3-background/60 transition-colors">
+                                        <td className="p-2.5">
+                                          <div className="font-bold text-p3-primary">{p.username}</div>
+                                          <div className="text-[10px] text-p3-muted">{p.email}</div>
+                                        </td>
+                                        <td className="p-2.5">
+                                          <span className={`px-2 py-0.5 text-[10px] font-black uppercase border ${getStatusBadgeStyle(p.status)}`}>
+                                            {p.status}
+                                          </span>
+                                        </td>
+                                        <td className="p-2.5 font-bold text-cyan-400">{p.accuracy_rate}%</td>
+                                        <td className="p-2.5 font-bold text-amber-400">{p.avg_response_time}s</td>
+                                        <td className="p-2.5 font-bold text-purple-400">{p.pressure_score}</td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={5} className="p-4 text-center text-p3-muted italic">
+                                        [ NO PARTICIPANTS FOUND MATCHING QUERY ]
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -772,11 +711,97 @@ export default function AdminDashboard() {
         </section>
       </div>
 
+      {/* QUIZ RESULTS TELEMETRY MODAL */}
+      {selectedResultAttemptId && (
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
+          <div className="relative bg-p3-surface p-6 sm:p-8 max-w-3xl w-full border-2 border-p3-primary shadow-[0_0_35px_rgba(59,130,246,0.4)] -skew-x-1 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-p3-primary/20 pb-4 mb-6 sticky top-0 bg-p3-surface z-10">
+              <div>
+                <span className="text-[10px] font-jakarta font-black uppercase text-p3-accent tracking-widest">
+                  ASSESSMENT COMPLETE TELEMETRY
+                </span>
+                <h3 className="font-kanit font-extrabold italic text-xl sm:text-2xl text-p3-primary uppercase">
+                  QUIZ PERFORMANCE REPORT
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedResultAttemptId(null);
+                  setAttemptResultData(null);
+                }}
+                className={`${btnBase} bg-red-600 text-white hover:bg-red-700`}
+              >
+                CLOSE [X]
+              </button>
+            </div>
+
+            {isResultLoading && !attemptResultData ? (
+              <div className="py-16 text-center font-kanit italic text-p3-primary text-xl animate-pulse">
+                COMPUTING ANALYTICS & METRICS...
+              </div>
+            ) : attemptResultData ? (
+              <div className="space-y-6 font-jakarta">
+                <div className="p-4 bg-p3-background border border-p3-primary/30 space-y-2">
+                  <h4 className="font-kanit font-extrabold italic text-lg text-p3-primary">
+                    {attemptResultData.title}
+                  </h4>
+                  <p className="text-xs text-p3-muted italic leading-relaxed">
+                    {attemptResultData.message}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-4 bg-p3-background border border-p3-primary/20 flex flex-col items-center text-center">
+                    <span className="text-[10px] font-rajdhani font-bold uppercase text-p3-muted mb-1">PRESSURE SCORE GRADE</span>
+                    <span className={`px-3 py-1 text-2xl font-black font-kanit italic uppercase border my-1 ${getPressureScoreBadge(attemptResultData.pressure_score_grade)}`}>
+                      {attemptResultData.pressure_score_grade} ({attemptResultData.research_stats?.pressure_score})
+                    </span>
+                    <span className="text-[11px] text-p3-muted italic mt-1">{attemptResultData.pressure_score_info}</span>
+                  </div>
+
+                  <div className="p-4 bg-p3-background border border-p3-primary/20 flex flex-col items-center text-center">
+                    <span className="text-[10px] font-rajdhani font-bold uppercase text-p3-muted mb-1">ACCURACY INTEGRITY</span>
+                    <span className={`px-2 py-1 text-sm font-extrabold italic border my-1 ${getAccuracyBadge(attemptResultData.accuracy_integrity_lvl)}`}>
+                      {attemptResultData.accuracy_integrity_lvl} ({attemptResultData.research_stats?.accuracy_rate}%)
+                    </span>
+                    <span className="text-[11px] text-p3-muted italic mt-1">{attemptResultData.accuracy_classification}</span>
+                  </div>
+
+                  <div className="p-4 bg-p3-background border border-p3-primary/20 flex flex-col items-center text-center">
+                    <span className="text-[10px] font-rajdhani font-bold uppercase text-p3-muted mb-1">PACING VELOCITY</span>
+                    <span className={`px-2 py-1 text-sm font-extrabold italic border my-1 ${getPacingVelocityBadge(attemptResultData.avg_rs_pacing_velocity)}`}>
+                      {attemptResultData.avg_rs_pacing_velocity} ({attemptResultData.research_stats?.avg_response_time}s avg)
+                    </span>
+                    <span className="text-[11px] text-p3-muted italic mt-1">{attemptResultData.avg_rs_diagnosis}</span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-p3-background border border-p3-primary/20 space-y-3">
+                  <span className="text-[10px] font-rajdhani font-bold uppercase text-p3-accent tracking-widest block">
+                    RESEARCH TELEMETRY BREAKDOWN
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div>Correct Answers: <span className="text-emerald-400 font-bold">{attemptResultData.research_stats?.total_correct_answers}</span></div>
+                    <div>Incorrect Answers: <span className="text-red-400 font-bold">{attemptResultData.research_stats?.total_incorrect_answers}</span></div>
+                    <div>Skipped Answers: <span className="text-amber-400 font-bold">{attemptResultData.research_stats?.total_skipped_answers}</span></div>
+                    <div>Time Ratio Saved: <span className="text-cyan-400 font-bold">{attemptResultData.research_stats?.time_ratio_saved}</span></div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-red-400 font-jakarta italic text-xs">
+                FAILED TO LOAD ASSESSMENT RESULTS FOR ATTEMPT ID: {selectedResultAttemptId}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* QUIZ UPDATE MODAL */}
       {selectedUpdateQuiz && (
         <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
           <div className="relative bg-p3-surface p-6 sm:p-8 max-w-lg w-full border-2 border-p3-primary shadow-[0_0_35px_rgba(59,130,246,0.4)] -skew-x-2 my-8 max-h-[90vh] overflow-y-auto">
-            
             <div className="flex items-center justify-between border-b border-p3-primary/20 pb-4 mb-6">
               <div>
                 <span className="text-[10px] font-jakarta font-black uppercase text-p3-accent tracking-widest">
@@ -802,14 +827,11 @@ export default function AdminDashboard() {
             )}
 
             <form onSubmit={handleUpdateQuizSubmit} className="space-y-5 font-jakarta">
-              
-              {/* Quiz Identifier Info */}
               <div className="p-3 bg-p3-background/60 border border-p3-primary/20 text-xs">
                 <span className="block font-rajdhani font-bold text-p3-muted uppercase">QUIZ TITLE:</span>
                 <span className="font-kanit font-extrabold text-p3-primary text-base italic">{selectedUpdateQuiz.title}</span>
               </div>
 
-              {/* Status Selector */}
               <div>
                 <label className="block font-rajdhani font-bold italic text-xs text-p3-muted uppercase tracking-wider mb-2">
                   STATUS
@@ -825,11 +847,9 @@ export default function AdminDashboard() {
                   <option value="published" className="bg-p3-surface text-cyan-400">PUBLISHED</option>
                   <option value="active" className="bg-p3-surface text-emerald-400">ACTIVE</option>
                   <option value="completed" className="bg-p3-surface text-purple-400">COMPLETED</option>
-                  <option value="expired" className="bg-p3-surface text-red-400">EXPIRED</option>
                 </select>
               </div>
 
-              {/* Checkboxes Options */}
               <div className="space-y-3 pt-2">
                 <label className="flex items-center space-x-3 cursor-pointer group">
                   <input
@@ -866,7 +886,6 @@ export default function AdminDashboard() {
                 </label>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-p3-primary/20">
                 <button
                   type="button"
@@ -885,14 +904,11 @@ export default function AdminDashboard() {
                   {isUpdating ? "SENDING UPDATE..." : "SEND UPDATE"}
                 </button>
               </div>
-
             </form>
 
-            {/* Grant Quiz Access Component */}
             <GrantQuizAccessSection
-              quizId={selectedUpdateQuiz.id || (selectedUpdateQuiz as any)._id}
+              quizId={selectedUpdateQuiz.id || selectedUpdateQuiz._id || ""}
             />
-
           </div>
         </div>
       )}
@@ -944,9 +960,9 @@ export default function AdminDashboard() {
                     <span className="block text-[10px] font-rajdhani text-p3-muted">COMPLETED</span>
                     <span className="font-kanit font-extrabold text-2xl text-emerald-400">{liveSessionData?.summary.completed_count ?? 0}</span>
                   </div>
-                  <div className="p-3 bg-p3-background border border-p3-primary/20 text-center col-span-2 sm:col-span-1">
+                  <div className="p-3 bg-p3-background border border-p3-primary/20 text-center">
                     <span className="block text-[10px] font-rajdhani text-p3-muted">EXPIRED</span>
-                    <span className="font-kanit font-extrabold text-2xl text-red-500">{liveSessionData?.summary.expired_count ?? 0}</span>
+                    <span className="font-kanit font-extrabold text-2xl text-rose-400">{liveSessionData?.summary.expired_count ?? 0}</span>
                   </div>
                 </div>
 
@@ -1032,7 +1048,6 @@ export default function AdminDashboard() {
                 {quizAnalyticsData?.item_analysis && quizAnalyticsData.item_analysis.length > 0 ? (
                   quizAnalyticsData.item_analysis.map((item) => (
                     <div key={item.question_id} className="p-5 bg-p3-background border border-p3-primary/30 flex flex-col space-y-4">
-                      {/* Question Header */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-p3-primary/10 pb-3">
                         <div>
                           <span className="text-[10px] font-jakarta font-bold uppercase text-p3-muted tracking-wider">
@@ -1052,7 +1067,6 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      {/* Question Summary Stats & Skipped Users Badges */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-jakarta text-p3-muted">
                         <div>TOTAL RESPONSES: <span className="text-p3-primary font-bold">{item.total_responses}</span></div>
                         <div>CORRECT: <span className="text-emerald-400 font-bold">{item.correct_responses}</span> | SKIPPED: <span className="text-amber-400 font-bold">{item.skipped_responses}</span></div>
@@ -1072,7 +1086,6 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      {/* Options Breakdown */}
                       <div className="space-y-2 mt-2">
                         <span className="text-[10px] font-rajdhani font-bold uppercase text-p3-muted tracking-widest">
                           OPTIONS & USER SELECTIONS:

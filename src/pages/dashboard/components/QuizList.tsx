@@ -1,13 +1,16 @@
-// src/pages/dashboard/components/QuizList.tsx
 import { useEffect, useState, useMemo } from "react";
-import { getActiveQuizzesApi } from "../../../services/quiz.service";
-import { useQuiz } from "../../../context/QuizContext";
+import { useNavigate } from "react-router-dom";
+import { getActiveQuizzesApi, quizService } from "../../../services/quiz.service";
 import type { Quiz } from "../../../types/quiz.types";
 
 type FilterStatus = "ALL" | "ACTIVE" | "PUBLISHED" | "COMPLETED";
 
-export default function QuizList() {
-  const { startQuiz } = useQuiz();
+interface QuizListProps {
+  onViewResults?: (attemptId: string) => void;
+}
+
+export default function QuizList({ onViewResults }: QuizListProps) {
+  const navigate = useNavigate();
 
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -23,20 +26,19 @@ export default function QuizList() {
         setLoading(true);
         const data = await getActiveQuizzesApi();
 
-        // EXCEPTION: Explicitly sanitize & exclude PENDING quizzes for regular users
         const visibleQuizzes = data.filter(
-          (quiz: any) => (quiz.status || "").toUpperCase() !== "PENDING"
+          (quiz: Quiz) => (quiz.status || "").toUpperCase() !== "PENDING"
         );
 
         setQuizzes(visibleQuizzes);
-      } catch (err: any) {
+      } catch {
         setError("FAILED TO SYNC AVAILABLE ASSESSMENTS");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchQuizzes();
+    void fetchQuizzes();
   }, []);
 
   const toggleMoreInfo = (id: string) => {
@@ -52,15 +54,23 @@ export default function QuizList() {
   const handleInitiateQuiz = async (quizId: string) => {
     try {
       setStartingQuizId(quizId);
-      await startQuiz(quizId);
-    } catch (err) {
-      console.error("Failed to initiate quiz:", err);
+      const attempt = await quizService.startQuiz(quizId);
+      navigate(`/quiz/${quizId}`, { state: { attemptId: attempt.id } });
+    } catch {
+      navigate(`/quiz/${quizId}`);
     } finally {
       setStartingQuizId(null);
     }
   };
 
-  // Status badge styling helper (matching Admin Dashboard)
+  const handleResultsClick = (attemptId: string) => {
+    if (onViewResults) {
+      onViewResults(attemptId);
+    } else {
+      navigate(`/quiz/results/${attemptId}`);
+    }
+  };
+
   const getStatusBadgeStyle = (statusStr: string) => {
     switch (statusStr.toUpperCase()) {
       case "ACTIVE":
@@ -68,22 +78,38 @@ export default function QuizList() {
       case "PUBLISHED":
         return "bg-cyan-400 text-slate-950 border-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.4)]";
       case "COMPLETED":
+      case "COMPLETE":
         return "bg-purple-600 text-white border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]";
       default:
         return "bg-p3-primary text-p3-highlight border-p3-accent";
     }
   };
 
-  // Dynamic action button helper based on status
-  const renderQuizActionButton = (quizId: string, statusStr: string) => {
-    const status = statusStr.toUpperCase();
+  const renderQuizActionButton = (quiz: Quiz) => {
+    const quizId = quiz.id;
+    const attemptId = quiz.latest_attempt_id;
+    const attemptStatus = (quiz.latest_attempt_status || "").toLowerCase();
+    const quizStatus = (quiz.status || "PUBLISHED").toUpperCase();
 
-    switch (status) {
+    if (attemptStatus === "completed" || (quizStatus === "COMPLETED" && attemptId)) {
+      return (
+        <button
+          type="button"
+          onClick={() => handleResultsClick(attemptId!)}
+          className="px-5 py-2 bg-p3-primary text-p3-highlight hover:bg-p3-accent hover:text-p3-primary font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-widest uppercase transition-all cursor-pointer shadow-md border border-p3-primary whitespace-nowrap text-center"
+        >
+          VIEW RESULTS
+        </button>
+      );
+    }
+
+    switch (quizStatus) {
       case "ACTIVE":
         return (
           <button
+            type="button"
             disabled={startingQuizId === quizId}
-            onClick={() => handleInitiateQuiz(quizId)}
+            onClick={() => void handleInitiateQuiz(quizId)}
             className="px-5 py-2.5 bg-p3-primary text-p3-highlight font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider uppercase hover:bg-p3-surface hover:text-p3-primary transition-colors shadow-md text-center cursor-pointer disabled:opacity-50"
           >
             {startingQuizId === quizId ? "INITIATING..." : "INITIATE NOW"}
@@ -93,6 +119,7 @@ export default function QuizList() {
       case "PUBLISHED":
         return (
           <button
+            type="button"
             disabled
             className="px-5 py-2.5 bg-slate-700/60 text-slate-400 border border-slate-600/50 font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider uppercase cursor-not-allowed opacity-75"
           >
@@ -104,16 +131,18 @@ export default function QuizList() {
       case "COMPLETE":
         return (
           <button
+            type="button"
             disabled
-            className="px-5 py-2.5 bg-red-950/40 text-red-400 border border-red-800/50 font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider uppercase cursor-not-allowed opacity-75"
+            className="px-5 py-2.5 bg-slate-800 text-slate-500 border border-slate-700 font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider uppercase cursor-not-allowed"
           >
-            SESSION CONCLUDED
+            COMPLETED
           </button>
         );
 
       default:
         return (
           <button
+            type="button"
             disabled
             className="px-5 py-2.5 bg-slate-800 text-slate-500 border border-slate-700 font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider uppercase cursor-not-allowed"
           >
@@ -123,12 +152,16 @@ export default function QuizList() {
     }
   };
 
-  // Derive visible list based on selected filter option
   const filteredQuizzes = useMemo(() => {
     if (activeFilter === "ALL") return quizzes;
-    return quizzes.filter(
-      (quiz: any) => (quiz.status || "").toUpperCase() === activeFilter
-    );
+    return quizzes.filter((quiz: Quiz) => {
+      const quizStatus = (quiz.status || "").toUpperCase();
+      const attemptStatus = (quiz.latest_attempt_status || "").toUpperCase();
+      if (activeFilter === "COMPLETED") {
+        return quizStatus === "COMPLETED" || attemptStatus === "COMPLETED";
+      }
+      return quizStatus === activeFilter;
+    });
   }, [quizzes, activeFilter]);
 
   const filterOptions: FilterStatus[] = ["ALL", "ACTIVE", "PUBLISHED", "COMPLETED"];
@@ -151,7 +184,6 @@ export default function QuizList() {
 
   return (
     <section className="w-full max-w-4xl mt-10 flex flex-col space-y-6">
-      {/* Section Header & Filter Control Bar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-2">
         <div>
           <h2 className="font-kanit font-extrabold italic text-xl sm:text-2xl text-p3-primary -skew-x-6 tracking-wide">
@@ -162,13 +194,13 @@ export default function QuizList() {
           </span>
         </div>
 
-        {/* Dynamic Filter Buttons */}
         <div className="flex flex-wrap gap-2">
           {filterOptions.map((status) => {
             const isActive = activeFilter === status;
             return (
               <button
                 key={status}
+                type="button"
                 onClick={() => setActiveFilter(status)}
                 className={`px-3 py-1 font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider transition-all duration-150 cursor-pointer ${
                   isActive
@@ -183,7 +215,6 @@ export default function QuizList() {
         </div>
       </div>
 
-      {/* Quizzes Grid */}
       <div className="grid grid-cols-1 gap-6">
         {filteredQuizzes.length === 0 ? (
           <div className="relative p-8 text-center border-2 border-dashed border-p3-muted/40">
@@ -192,23 +223,22 @@ export default function QuizList() {
             </p>
           </div>
         ) : (
-          filteredQuizzes.map((quiz: any) => {
-            const quizId = quiz.id || quiz._id;
+          filteredQuizzes.map((quiz: Quiz) => {
+            const quizId = quiz.id;
             const isExpanded = expandedQuizId === quizId;
             const quizStatus = (quiz.status || "PUBLISHED").toUpperCase();
 
-            const totalQuestions = quiz.total_questions || quiz.questions?.length || 5;
-            const timeLimitVal = quiz.time_limit_sec ?? quiz.time_limit;
+            const totalQuestions = quiz.total_questions || quiz.questions?.length || 0;
+            const timeLimitVal = quiz.time_limit_sec;
             const timeLimitText = timeLimitVal ? `${timeLimitVal}S` : "NONE";
 
-            const timePerQuestionVal = quiz.time_per_question_sec ?? quiz.time_per_question;
+            const timePerQuestionVal = quiz.time_per_question_sec;
             const timePerQuestionText = timePerQuestionVal
               ? `${timePerQuestionVal} SECONDS`
               : "NONE (GLOBAL LIMIT)";
 
-            const allowBacktracking = quiz.allow_backtracking ?? quiz.allow_backtrack ?? false;
-            const allowSynchronous = quiz.allow_synchronous ?? (quiz.sync_mode === "SYNCHRONOUS");
-
+            const allowBacktracking = quiz.allow_backtracking ?? false;
+            const allowSynchronous = quiz.allow_synchronous ?? false;
             const deployedAtText = formatTimestamp(quiz.created_at);
 
             return (
@@ -216,16 +246,13 @@ export default function QuizList() {
                 key={quizId}
                 className="group relative p-6 flex flex-col transition-all duration-200 ease-out hover:translate-x-1"
               >
-                {/* Styled Background Layers */}
                 <div className="absolute inset-0 bg-p3-highlight -skew-x-3 -z-1 group-hover:skew-x-4 transition-transform"></div>
                 <div className="absolute bg-p3-primary skew-x-6 -top-1 -bottom-1 w-[calc(100%+12px)] left-1/2 -translate-x-1/2 -z-2 group-hover:skew-x-8 transition-transform"></div>
                 <div className="absolute bg-p3-accent -skew-x-8 -top-2 -bottom-2 w-[calc(100%+24px)] left-1/2 -translate-x-1/2 -z-3 group-hover:-skew-x-12 transition-transform"></div>
 
-                {/* Main Card Content */}
                 <div className="z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="flex flex-col max-w-xl">
                     <div className="flex items-center space-x-2 mb-1.5 flex-wrap gap-y-1">
-                      {/* Dynamic Status Badge */}
                       <span className={`px-2 py-0.5 text-[10px] font-jakarta font-black -skew-x-8 tracking-widest uppercase border ${getStatusBadgeStyle(quizStatus)}`}>
                         {quizStatus}
                       </span>
@@ -243,21 +270,19 @@ export default function QuizList() {
                     </p>
                   </div>
 
-                  {/* Actions Container */}
                   <div className="flex items-center space-x-3 self-end md:self-center">
                     <button
+                      type="button"
                       onClick={() => toggleMoreInfo(quizId)}
                       className="px-4 py-2 bg-transparent border-2 border-p3-primary text-p3-primary font-jakarta font-extrabold text-xs -skew-x-8 italic tracking-wider uppercase hover:bg-p3-primary hover:text-p3-highlight transition-colors cursor-pointer shadow-sm"
                     >
                       {isExpanded ? "HIDE DETAILS ▲" : "MORE INFO ▼"}
                     </button>
 
-                    {/* DYNAMIC ACTION BUTTON */}
-                    {renderQuizActionButton(quizId, quizStatus)}
+                    {renderQuizActionButton(quiz)}
                   </div>
                 </div>
 
-                {/* Expanded Telemetry Details */}
                 {isExpanded && (
                   <div className="z-10 mt-5 pt-4 border-t border-p3-primary/20 grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-6">
                     <div>
@@ -293,7 +318,7 @@ export default function QuizList() {
                         DEPLOYMENT CREATOR ID
                       </span>
                       <span className="font-kanit font-extrabold italic text-xs text-p3-primary -skew-x-6 break-all">
-                        {quiz.created_by || quiz.creator_id || "SYSTEM_ADMIN"}
+                        {quiz.created_by || "SYSTEM_ADMIN"}
                       </span>
                     </div>
 

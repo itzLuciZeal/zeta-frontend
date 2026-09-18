@@ -1,7 +1,7 @@
-// src/context/QuizContext.tsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { quizService } from '../services/quiz.service';
-import type { QuizAttempt, QuestionStudentRead } from '../types/quiz.types';
+import type { QuizAttempt, QuestionStudentRead, QuizAttemptResultResponse } from '../types/quiz.types';
+import axios from 'axios';
 
 export type QuizStatus = 'IDLE' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED';
 export type QuizMode = 'SEQUENTIAL' | 'BACKTRACKING' | null;
@@ -11,13 +11,15 @@ export interface QuizContextType {
   status: QuizStatus;
   mode: QuizMode;
   questions: QuestionStudentRead[];
-  currentQuestion: QuestionStudentRead | null; // <--- FIXED: Explicitly declared here
+  currentQuestion: QuestionStudentRead | null;
   timeRemainingSec: number;
   loading: boolean;
   error: string | null;
+  results: QuizAttemptResultResponse | null;
   startQuiz: (quizId: string) => Promise<void>;
   submitAnswer: (selectedOption: string, questionId?: string) => Promise<void>;
   loadResults: (attemptId: string) => Promise<void>;
+  resetQuizState: () => void;
 }
 
 const QuizContext = createContext<QuizContextType | undefined>(undefined);
@@ -31,10 +33,67 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [timeRemainingSec, setTimeRemainingSec] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<QuizAttemptResultResponse | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isInitializingRef = useRef<string | null>(null);
 
-  // Timer Countdown Effect
+  const resetQuizState = () => {
+    setActiveAttempt(null);
+    setStatus('IDLE');
+    setMode(null);
+    setQuestions([]);
+    setCurrentQuestion(null);
+    setTimeRemainingSec(0);
+    setLoading(false);
+    setError(null);
+    setResults(null);
+    isInitializingRef.current = null;
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const loadResults = async (attemptId: string) => {
+    try {
+      const resultData = await quizService.getAttemptResults(attemptId);
+      setResults(resultData);
+      setStatus('COMPLETED');
+    } catch (err: unknown) {
+      console.error('Failed to load quiz results:', err);
+      setError('FAILED TO LOAD ASSESSMENT RESULTS');
+    }
+  };
+
+  const advanceSequentialSlot = async (attemptId: string) => {
+    try {
+      const nextQData = await quizService.getCurrentQuestion(attemptId);
+      setCurrentQuestion(nextQData.question);
+      setTimeRemainingSec(Math.max(0, Math.floor(nextQData.time_remaining_sec)));
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const httpStatus = err.response?.status;
+        if (httpStatus === 404) {
+          // GUARD: If currentQuestion is still null, this is initial load failure, NOT completion!
+          if (!currentQuestion) {
+            setError('THIS QUIZ CONTAINS NO QUESTIONS OR FAILED TO INITIALIZE STARTING SLOT.');
+            setStatus('IDLE');
+            return;
+          }
+          setStatus('COMPLETED');
+          await loadResults(attemptId);
+        } else if (httpStatus === 400) {
+          setStatus('EXPIRED');
+        } else {
+          setError('CRITICAL TELEMETRY ERROR DURING QUESTION TRANSITION');
+        }
+      } else {
+        setError('UNEXPECTED ERROR DURING QUESTION TRANSITION');
+      }
+    }
+  };
+
   useEffect(() => {
     if (status !== 'IN_PROGRESS') return;
 
@@ -42,85 +101,99 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setTimeRemainingSec((prev) => {
         if (prev <= 1) {
           if (timerRef.current !== null) clearInterval(timerRef.current);
-          setStatus('EXPIRED');
-          return 0;
+
+          if (mode === 'SEQUENTIAL' && activeAttempt) {
+            void advanceSequentialSlot(activeAttempt.id);
+            return 0;
+          }
+
+          if (mode === 'BACKTRACKING') {
+            setStatus('EXPIRED');
+            return 0;
+          }
         }
         return prev - 1;
       });
     }, 1000);
 
     return () => {
-      if (timerRef.current !== null) clearInterval(timerRef.current);
+      if (timerRef.current !== null) {
+        clearInterval(timerRef.current);
+      }
     };
-  }, [status]);
+  }, [status, mode, activeAttempt]);
 
-  // Start or resume quiz
   const startQuiz = async (quizId: string) => {
+    if (isInitializingRef.current === quizId || (activeAttempt && activeAttempt.quiz_id === quizId && status === 'IN_PROGRESS')) {
+      return;
+    }
+
+    isInitializingRef.current = quizId;
     setLoading(true);
     setError(null);
+
     try {
       const attempt = await quizService.startQuiz(quizId);
       setActiveAttempt(attempt);
 
-      if (attempt.status === 'completed' || attempt.status === 'expired') {
-        setStatus(attempt.status.toUpperCase() as QuizStatus);
-        setLoading(false);
+      const normalizedStatus = (attempt.status || '').toLowerCase();
+
+      if (normalizedStatus === 'completed') {
+        setStatus('COMPLETED');
+        await loadResults(attempt.id);
         return;
       }
 
-      // Try Backtracking endpoint first
+      if (normalizedStatus === 'expired') {
+        setStatus('EXPIRED');
+        return;
+      }
+
       try {
         const allQData = await quizService.getAllQuestions(attempt.id);
         setQuestions(allQData.questions);
         setTimeRemainingSec(Math.max(0, Math.floor(allQData.time_remaining_sec)));
         setMode('BACKTRACKING');
         setStatus('IN_PROGRESS');
-      } catch (err: any) {
-        // Fallback to Sequential mode if 403 / forbidden
-        if (err?.response?.status === 403) {
+      } catch (err: unknown) {
+        if (axios.isAxiosError(err) && err.response?.status === 403) {
           setMode('SEQUENTIAL');
-          const currentQData = await quizService.getCurrentQuestion(attempt.id);
-          setCurrentQuestion(currentQData.question);
-          setTimeRemainingSec(Math.max(0, Math.floor(currentQData.time_remaining_sec)));
+          await advanceSequentialSlot(attempt.id);
           setStatus('IN_PROGRESS');
         } else {
           throw err;
         }
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'FAILED TO INITIALIZE QUIZ ASSIGNMENT');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.detail || 'FAILED TO INITIALIZE QUIZ ASSIGNMENT');
+      } else {
+        setError('FAILED TO INITIALIZE QUIZ ASSIGNMENT');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Submit Answer
   const submitAnswer = async (selectedOption: string, questionId?: string) => {
     if (!activeAttempt) return;
     try {
+      const targetQuestionId = questionId || currentQuestion?.id || '';
       await quizService.submitAnswer(activeAttempt.id, {
-        question_id: questionId || currentQuestion?.id || '',
+        question_id: targetQuestionId,
         selected_option_id: selectedOption,
       });
 
       if (mode === 'SEQUENTIAL') {
-        const nextQ = await quizService.getCurrentQuestion(activeAttempt.id);
-        setCurrentQuestion(nextQ.question);
-        setTimeRemainingSec(Math.max(0, Math.floor(nextQ.time_remaining_sec)));
+        await advanceSequentialSlot(activeAttempt.id);
       }
-    } catch (err: any) {
-      console.error('Answer submission error:', err);
-      throw err;
-    }
-  };
-
-  // Load Results
-  const loadResults = async (attemptId: string) => {
-    try {
-      await quizService.getAttemptResults(attemptId);
-      setStatus('COMPLETED');
-    } catch (err: any) {
-      console.error('Failed to load quiz results:', err);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        setStatus('COMPLETED');
+        await loadResults(activeAttempt.id);
+      } else {
+        throw err;
+      }
     }
   };
 
@@ -135,9 +208,11 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
         timeRemainingSec,
         loading,
         error,
+        results,
         startQuiz,
         submitAnswer,
         loadResults,
+        resetQuizState,
       }}
     >
       {children}
@@ -145,7 +220,7 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useQuiz = () => {
+export const useQuiz = (): QuizContextType => {
   const context = useContext(QuizContext);
   if (!context) {
     throw new Error('useQuiz must be used within a QuizProvider');

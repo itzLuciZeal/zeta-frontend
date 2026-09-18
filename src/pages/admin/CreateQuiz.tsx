@@ -269,14 +269,15 @@ export default function CreateQuiz() {
 
       const res: QuizCreateResponse = await createQuizApi(payload);
       setSuccessData(res);
-    } catch (err: any) {
-      console.error("FULL FASTAPI 422 ERROR:", err.response?.data);
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { detail?: unknown } }; detail?: string; message?: string };
+      console.error("FULL FASTAPI 422 ERROR:", errorObj.response?.data);
 
-      const detail = err?.response?.data?.detail || err?.detail || err?.message;
+      const detail = errorObj?.response?.data?.detail || errorObj?.detail || errorObj?.message;
 
       if (Array.isArray(detail)) {
         const formattedErrors = detail
-          .map((d: any) => `${d.loc ? d.loc.join(" -> ") : "field"}: ${d.msg}`)
+          .map((d: { loc?: string[]; msg: string }) => `${d.loc ? d.loc.join(" -> ") : "field"}: ${d.msg}`)
           .join(" | ");
         setError(formattedErrors);
       } else if (typeof detail === "string") {
@@ -447,7 +448,6 @@ export default function CreateQuiz() {
                   className="bg-p3-background border border-p3-primary/30 p-2 font-jakarta text-xs text-p3-primary focus:outline-none focus:border-p3-primary uppercase font-bold"
                 >
                   <option value="PENDING">PENDING</option>
-                  <option value="ACTIVE">ACTIVE</option>
                   <option value="PUBLISHED">PUBLISHED</option>
                 </select>
               </div>
