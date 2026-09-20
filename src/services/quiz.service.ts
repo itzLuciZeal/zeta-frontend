@@ -43,7 +43,7 @@ export const grantQuizAccessApi = async (
 export async function getAttemptResultsApi(attemptId: string): Promise<QuizAttemptResultResponse> {
   const response = await api.get<QuizAttemptResultResponse>(`${QUIZ_PREFIX}/attempts/${attemptId}/results`);
   return response.data;
-}
+};
 
 export const quizService = {
   async getActiveQuizzes(statusFilter?: string): Promise<Quiz[]> {

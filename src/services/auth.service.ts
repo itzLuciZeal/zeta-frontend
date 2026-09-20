@@ -36,4 +36,4 @@ export const resetPassApi = async (credentials: ResetPassCredentials): Promise<M
 export const logoutApi = async (): Promise<MessageResponse> => {
     const response = await api.post<MessageResponse>(`${AUTH_PREFIX}/logout`);
     return response.data;
-}
+};

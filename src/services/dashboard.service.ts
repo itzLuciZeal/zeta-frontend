@@ -17,15 +17,15 @@ export const getAdminDashboardApi = async () => {
 export async function getLiveQuizSessionApi(quizId: string): Promise<LiveQuizSessionResponse> {
   const response = await api.get<LiveQuizSessionResponse>(`${DASHBOARD_PREFIX}/admin/quizzes/${quizId}/live`);
   return response.data;
-}
+};
 
 export async function getQuizOverallAnalyticsApi(quizId: string): Promise<QuizOverallAnalytics> {
   const response = await api.get(`${DASHBOARD_PREFIX}/admin/quizzes/${quizId}/analytics`);
   return response.data;
-}
+};
 
 export async function getQuizParticipantsApi(quizId: string, searchQuery?: string): Promise<QuizParticipantTelemetry[]> {
   const params = searchQuery ? { q: searchQuery } : {};
   const response = await api.get(`${DASHBOARD_PREFIX}/admin/quizzes/${quizId}/participants`, { params });
   return response.data;
-}
+};

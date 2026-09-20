@@ -64,7 +64,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen select-none px-2 sm:px-4 py-6 sm:py-12 overflow-hidden">
+    <div className="relative flex flex-col items-center justify-start sm:justify-center h-dvh w-full select-none px-3 sm:px-4 py-8 sm:py-12 overflow-x-hidden overflow-y-auto">
       {/* Dynamic Keyframe Animations */}
       <style>{`
         @keyframes slashReveal {
@@ -115,12 +115,12 @@ export default function LoginPage() {
       {isLoading && <PersonaLoading message="AUTHENTICATING USER..." />}
 
       {/* Main Container Layer - Scaled down on PC/Desktop via max-w-sm */}
-      <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-sm my-auto z-10 transition-all duration-300">
-        {/* Layer 1: Sharp Outer Slanted Frame */}
-        <div className="absolute -inset-2 sm:-inset-3 md:-inset-3 bg-linear-to-r from-blue-600 via-cyan-400 to-blue-800 -skew-x-6 opacity-30 border border-cyan-400/40 shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all duration-300" />
+      <div className="relative w-full max-w-70 xs:max-w-xs sm:max-w-sm md:max-w-sm my-auto z-10 transition-all duration-300 mx-auto">
+        {/* Layer 1: Sharp Outer Slanted Frame (Mobile-safe horizontal offsets) */}
+        <div className="absolute -inset-x-1.5 -inset-y-2 sm:-inset-3 md:-inset-3 bg-linear-to-r from-blue-600 via-cyan-400 to-blue-800 -skew-x-6 opacity-30 border border-cyan-400/40 shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all duration-300 pointer-events-none" />
 
         {/* Layer 2: Cobalt Blue Secondary Slanted Ribbon */}
-        <div className="absolute -inset-1 sm:-inset-1.5 md:-inset-2 bg-[#001340] skew-x-3 border-2 border-cyan-400/50 shadow-[4px_4px_0px_0px_#000c29] sm:shadow-[6px_6px_0px_0px_#000c29] transition-all duration-300" />
+        <div className="absolute -inset-x-1 -inset-y-1 sm:-inset-1.5 md:-inset-2 bg-[#001340] skew-x-3 border-2 border-cyan-400/50 shadow-[4px_4px_0px_0px_#000c29] sm:shadow-[6px_6px_0px_0px_#000c29] transition-all duration-300 pointer-events-none" />
 
         {/* Layer 3: Main Persona Card */}
         <form
@@ -270,7 +270,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="relative w-full p-2.5 sm:p-3 -skew-x-3 border-2 border-cyan-400/80 bg-linear-to-r from-blue-700 via-blue-600 to-cyan-600 text-white shadow-[4px_4px_0px_0px_#001a66] sm:shadow-[5px_5px_0px_0px_#001a66] transition-all duration-300 ease-out overflow-hidden cursor-pointer outline-none hover:translate-x-1 hover:border-cyan-300 hover:shadow-[4px_4px_0px_0px_#00f0ff] focus-visible:translate-x-1 hover:-translate-y-0.5 focus-visible:border-cyan-300 focus-visible:shadow-[4px_4px_0px_0px_#00f0ff] active:scale-95 active:translate-x-0 active:translate-y-0 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative w-full p-2.5 sm:p-3 -skew-x-3 border-2 border-cyan-400/80 bg-linear-to-r from-blue-700 via-blue-600 to-cyan-600 text-white shadow-[4px_4px_0px_0px_#001a66] sm:shadow-[5px_5px_0px_0px_#001a66] transition-all duration-300 ease-out overflow-hidden cursor-pointer outline-none hover:translate-x-1 hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-[4px_4px_0px_0px_#00f0ff] focus-visible:translate-x-1 focus-visible:-translate-y-0.5 focus-visible:border-cyan-300 focus-visible:shadow-[4px_4px_0px_0px_#00f0ff] active:scale-95 active:translate-x-0 active:translate-y-0 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="absolute -inset-y-4 -inset-x-12 bg-linear-to-r from-transparent via-cyan-300/40 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full group-focus-within:translate-x-full transition-transform duration-700 ease-out pointer-events-none z-10" />
 
@@ -279,7 +279,6 @@ export default function LoginPage() {
                   {isLoading ? "SUBMITTING..." : "SUBMIT"}
                 </span>
                 <span className="text-base sm:text-lg font-black text-cyan-300 group-hover:text-white group-focus-visible:text-white group-hover:translate-x-1 group-focus-visible:translate-x-1 transition-transform duration-200">
-                  ➔
                 </span>
               </div>
             </button>
@@ -301,7 +300,7 @@ export default function LoginPage() {
                 </span>
               </span>
               <span className="text-[8px] sm:text-[9px] font-black italic px-1.5 py-0.2 -skew-x-12 bg-cyan-400 text-[#020612] group-hover:bg-[#020612] group-hover:text-cyan-400 group-focus-visible:bg-[#020612] group-focus-visible:text-cyan-400 transition-colors duration-200">
-                JOIN ➔
+                JOIN
               </span>
             </Link>
           </div>
