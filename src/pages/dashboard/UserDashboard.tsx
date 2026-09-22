@@ -23,6 +23,7 @@ import { quizService } from "../../services/quiz.service";
 import type { UserDashboardResponse } from "../../types/dashboard.types";
 import type { QuizAttemptResultResponse } from "../../types/quiz.types";
 import { PersonaLoading } from "../../components/ui/PersonaLoading";
+import Footer from "../../components/ui/Footer";
 import QuizList from "./components/QuizList";
 
 type ActiveTab = "overview" | "quizzes";
@@ -138,7 +139,7 @@ export default function UserDashboard() {
   const isAdmin = user_info.role?.toLowerCase() === "admin" || user?.role?.toLowerCase() === "admin";
 
   return (
-    <div className="relative w-full text-slate-100 flex flex-col items-center justify-between p-2.5 sm:p-6 lg:p-8 select-none overflow-x-hidden">
+    <div className="relative w-full min-h-screen text-slate-100 flex flex-col items-center p-2.5 sm:p-6 lg:p-8 select-none overflow-x-hidden">
       
       {/* Keyframe Style Animations */}
       <style>{`
@@ -159,213 +160,223 @@ export default function UserDashboard() {
         }
       `}</style>
 
-      {/* Main Container */}
-      <div className="w-full max-w-6xl flex flex-col items-center z-10 space-y-4 sm:space-y-6">
+      {/* Main Layout Outer Container */}
+      <div className="w-full max-w-6xl flex-1 flex flex-col justify-between items-center z-10 space-y-6">
         
-        {/* TOP HERO HEADER CARD */}
-        <header className="relative w-full">
-          <div className="absolute -inset-1 sm:-inset-2 bg-linear-to-r from-blue-600 via-cyan-400 to-blue-800 -skew-x-3 sm:-skew-x-6 opacity-30 border border-cyan-400/40 shadow-[0_0_30px_rgba(0,240,255,0.2)] pointer-events-none" />
-          <div className="absolute -inset-0.5 sm:-inset-1 bg-p3-surface skew-x-2 sm:skew-x-3 border-2 border-cyan-400/50 shadow-[4px_4px_0px_0px_#000c29] pointer-events-none" />
+        {/* Main Content Body */}
+        <div className="w-full flex-1 flex flex-col items-center space-y-4 sm:space-y-6">
+          
+          {/* TOP HERO HEADER CARD */}
+          <header className="relative w-full">
+            <div className="absolute -inset-1 sm:-inset-2 bg-linear-to-r from-blue-600 via-cyan-400 to-blue-800 -skew-x-3 sm:-skew-x-6 opacity-30 border border-cyan-400/40 shadow-[0_0_30px_rgba(0,240,255,0.2)] pointer-events-none" />
+            <div className="absolute -inset-0.5 sm:-inset-1 bg-p3-surface skew-x-2 sm:skew-x-3 border-2 border-cyan-400/50 shadow-[4px_4px_0px_0px_#000c29] pointer-events-none" />
 
-          <div className="relative bg-p3-surface border-2 border-cyan-400 shadow-[5px_5px_0px_0px_#002288] sm:shadow-[10px_10px_0px_0px_#002288] -skew-x-1 sm:-skew-x-2 p-4 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 overflow-hidden">
-            
-            <div className="absolute -top-3 -right-3 w-8 h-8 bg-cyan-400 [clip-path:polygon(100%_0,0_100%,100%_100%)] pointer-events-none" />
+            <div className="relative bg-p3-surface border-2 border-cyan-400 shadow-[5px_5px_0px_0px_#002288] sm:shadow-[10px_10px_0px_0px_#002288] -skew-x-1 sm:-skew-x-2 p-4 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 overflow-hidden">
+              
+              <div className="absolute -top-3 -right-3 w-8 h-8 bg-cyan-400 [clip-path:polygon(100%_0,0_100%,100%_100%)] pointer-events-none" />
 
-            {/* Operative Bio Info */}
-            <div className="space-y-1.5 sm:space-y-2 z-10 w-full md:w-auto">
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <div className="inline-block bg-[#00f0ff] text-[#020612] px-2.5 py-0.5 -skew-x-12 border-r-4 border-blue-800 shadow-[2px_2px_0px_0px_#001a66]">
-                  <span className="font-black italic text-[9px] sm:text-[10px] tracking-widest uppercase">
-                    SYSTEM ONLINE
+              {/* Operative Bio Info */}
+              <div className="space-y-1.5 sm:space-y-2 z-10 w-full md:w-auto">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <div className="inline-block bg-[#00f0ff] text-[#020612] px-2.5 py-0.5 -skew-x-12 border-r-4 border-blue-800 shadow-[2px_2px_0px_0px_#001a66]">
+                    <span className="font-black italic text-[9px] sm:text-[10px] tracking-widest uppercase">
+                      SYSTEM ONLINE
+                    </span>
+                  </div>
+                  <span className="font-mono text-[9px] sm:text-[10px] font-bold text-cyan-300 tracking-widest uppercase bg-p3-surface border border-cyan-500/40 px-2 py-0.5 -skew-x-6">
+                    OPERATIVE_ID // ACTIVE
                   </span>
                 </div>
-                <span className="font-mono text-[9px] sm:text-[10px] font-bold text-cyan-300 tracking-widest uppercase bg-p3-surface border border-cyan-500/40 px-2 py-0.5 -skew-x-6">
-                  OPERATIVE_ID // ACTIVE
-                </span>
+
+                <h1 className="font-black italic text-2xl xs:text-3xl sm:text-4xl md:text-5xl text-white -skew-x-4 sm:-skew-x-6 tracking-wider drop-shadow-[2px_2px_0px_#00f0ff] leading-tight">
+                  OPERATIVE DASHBOARD
+                </h1>
+
+                <div className="inline-flex items-center gap-2 bg-p3-surface border border-slate-700 px-2.5 py-1 -skew-x-6 shadow-[2px_2px_0px_0px_#000] max-w-full overflow-hidden">
+                  <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                  <span className="font-black italic text-[11px] sm:text-xs text-slate-300 tracking-wider truncate">
+                    OPERATIVE: <strong className="text-white">{user_info.username.toUpperCase()}</strong> ({user_info.email})
+                  </span>
+                </div>
               </div>
 
-              <h1 className="font-black italic text-2xl xs:text-3xl sm:text-4xl md:text-5xl text-white -skew-x-4 sm:-skew-x-6 tracking-wider drop-shadow-[2px_2px_0px_#00f0ff] leading-tight">
-                OPERATIVE DASHBOARD
-              </h1>
+              {/* Header Action Buttons */}
+              <div className="flex items-center gap-2.5 z-10 shrink-0 w-full md:w-auto">
+                {isAdmin && (
+                  <button
+                    onClick={() => navigate("/admin/dashboard")}
+                    className="flex-1 md:flex-none group relative px-3 sm:px-4 py-2 sm:py-2.5 -skew-x-6 border-2 border-cyan-400 bg-linear-to-r from-blue-700 via-blue-600 to-cyan-600 text-white shadow-[3px_3px_0px_0px_#001a66] hover:shadow-[4px_4px_0px_0px_#00f0ff] hover:translate-x-0.5 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-300 group-hover:scale-110 transition-transform shrink-0" />
+                    <span className="font-black italic text-[10px] sm:text-xs tracking-wider uppercase truncate">
+                      ADMIN COMMAND
+                    </span>
+                  </button>
+                )}
 
-              <div className="inline-flex items-center gap-2 bg-p3-surface border border-slate-700 px-2.5 py-1 -skew-x-6 shadow-[2px_2px_0px_0px_#000] max-w-full overflow-hidden">
-                <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
-                <span className="font-black italic text-[11px] sm:text-xs text-slate-300 tracking-wider truncate">
-                  OPERATIVE: <strong className="text-white">{user_info.username.toUpperCase()}</strong> ({user_info.email})
-                </span>
-              </div>
-            </div>
-
-            {/* Header Action Buttons */}
-            <div className="flex items-center gap-2.5 z-10 shrink-0 w-full md:w-auto">
-              {isAdmin && (
                 <button
-                  onClick={() => navigate("/admin/dashboard")}
-                  className="flex-1 md:flex-none group relative px-3 sm:px-4 py-2 sm:py-2.5 -skew-x-6 border-2 border-cyan-400 bg-linear-to-r from-blue-700 via-blue-600 to-cyan-600 text-white shadow-[3px_3px_0px_0px_#001a66] hover:shadow-[4px_4px_0px_0px_#00f0ff] hover:translate-x-0.5 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+                  onClick={() => setIsLogoutModalOpen(true)}
+                  className="flex-1 md:flex-none group relative px-3 sm:px-4 py-2 sm:py-2.5 -skew-x-6 border-2 border-rose-400 bg-linear-to-r from-rose-800 via-rose-700 to-rose-600 text-white shadow-[3px_3px_0px_0px_#4c0519] hover:shadow-[4px_4px_0px_0px_#f43f5e] hover:translate-x-0.5 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-300 group-hover:scale-110 transition-transform shrink-0" />
+                  <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-200 group-hover:-translate-x-0.5 transition-transform shrink-0" />
                   <span className="font-black italic text-[10px] sm:text-xs tracking-wider uppercase truncate">
-                    ADMIN COMMAND
+                    LOG OUT
                   </span>
                 </button>
-              )}
-
-              <button
-                onClick={() => setIsLogoutModalOpen(true)}
-                className="flex-1 md:flex-none group relative px-3 sm:px-4 py-2 sm:py-2.5 -skew-x-6 border-2 border-rose-400 bg-linear-to-r from-rose-800 via-rose-700 to-rose-600 text-white shadow-[3px_3px_0px_0px_#4c0519] hover:shadow-[4px_4px_0px_0px_#f43f5e] hover:translate-x-0.5 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
-              >
-                <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-200 group-hover:-translate-x-0.5 transition-transform shrink-0" />
-                <span className="font-black italic text-[10px] sm:text-xs tracking-wider uppercase truncate">
-                  LOG OUT
-                </span>
-              </button>
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* INTERACTIVE NAVIGATION TABS BAR (OVERVIEW & QUIZZES ONLY) */}
-        <nav className="w-full flex items-center gap-2 sm:gap-3 pt-1">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`flex-1 sm:flex-none px-3.5 sm:px-6 py-2.5 sm:py-3 -skew-x-6 sm:-skew-x-12 border-2 font-black italic text-[11px] sm:text-xs tracking-wider sm:tracking-widest uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-[3px_3px_0px_0px_#000] ${
-              activeTab === "overview"
-                ? "bg-linear-to-r from-cyan-400 to-blue-600 text-p3-surface border-white shadow-[3px_3px_0px_0px_#00f0ff] translate-x-0.5"
-                : "bg-p3-surface border-cyan-500/50 text-cyan-300 hover:border-cyan-400"
-            }`}
-          >
-            <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-            <span>01 // OVERVIEW</span>
-          </button>
+          {/* INTERACTIVE NAVIGATION TABS BAR */}
+          <nav className="w-full flex items-center gap-2 sm:gap-3 pt-1">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`flex-1 sm:flex-none px-3.5 sm:px-6 py-2.5 sm:py-3 -skew-x-6 sm:-skew-x-12 border-2 font-black italic text-[11px] sm:text-xs tracking-wider sm:tracking-widest uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-[3px_3px_0px_0px_#000] ${
+                activeTab === "overview"
+                  ? "bg-linear-to-r from-cyan-400 to-blue-600 text-p3-surface border-white shadow-[3px_3px_0px_0px_#00f0ff] translate-x-0.5"
+                  : "bg-p3-surface border-cyan-500/50 text-cyan-300 hover:border-cyan-400"
+              }`}
+            >
+              <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>01 // OVERVIEW</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab("quizzes")}
-            className={`flex-1 sm:flex-none px-3.5 sm:px-6 py-2.5 sm:py-3 -skew-x-6 sm:-skew-x-12 border-2 font-black italic text-[11px] sm:text-xs tracking-wider sm:tracking-widest uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-[3px_3px_0px_0px_#000] ${
-              activeTab === "quizzes"
-                ? "bg-linear-to-r from-cyan-400 to-blue-600 text-p3-surface border-white shadow-[3px_3px_0px_0px_#00f0ff] translate-x-0.5"
-                : "bg-p3-surface border-cyan-500/50 text-cyan-300 hover:border-cyan-400"
-            }`}
-          >
-            <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-            <span>02 // QUIZZES</span>
-          </button>
-        </nav>
+            <button
+              onClick={() => setActiveTab("quizzes")}
+              className={`flex-1 sm:flex-none px-3.5 sm:px-6 py-2.5 sm:py-3 -skew-x-6 sm:-skew-x-12 border-2 font-black italic text-[11px] sm:text-xs tracking-wider sm:tracking-widest uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-[3px_3px_0px_0px_#000] ${
+                activeTab === "quizzes"
+                  ? "bg-linear-to-r from-cyan-400 to-blue-600 text-p3-surface border-white shadow-[3px_3px_0px_0px_#00f0ff] translate-x-0.5"
+                  : "bg-p3-surface border-cyan-500/50 text-cyan-300 hover:border-cyan-400"
+              }`}
+            >
+              <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>02 // QUIZZES</span>
+            </button>
+          </nav>
 
-        {/* TAB CONTENT VIEW 1: OVERVIEW */}
-        {activeTab === "overview" && (
-          <div className="w-full space-y-4 sm:space-y-6 animate-slash-reveal">
-            
-            {/* CONSOLIDATED 1-CARD OVERVIEW SHOWCASING ALL 3 METRICS */}
-            <div className="group relative w-full">
-              <div className="absolute -inset-1 sm:-inset-1.5 bg-linear-to-r from-blue-600/40 via-cyan-400/40 to-blue-800/40 -skew-x-3 sm:-skew-x-6 border border-cyan-400/30 pointer-events-none" />
-              <div className="absolute -inset-0.5 sm:-inset-1 bg-p3-surface skew-x-2 sm:skew-x-3 border-2 border-cyan-400/40 shadow-[3px_3px_0px_0px_#000c29] pointer-events-none" />
+          {/* TAB CONTENT VIEW 1: OVERVIEW */}
+          {activeTab === "overview" && (
+            <div className="w-full space-y-4 sm:space-y-6 animate-slash-reveal">
+              
+              {/* CONSOLIDATED 1-CARD OVERVIEW SHOWCASING ALL 3 METRICS */}
+              <div className="group relative w-full">
+                <div className="absolute -inset-1 sm:-inset-1.5 bg-linear-to-r from-blue-600/40 via-cyan-400/40 to-blue-800/40 -skew-x-3 sm:-skew-x-6 border border-cyan-400/30 pointer-events-none" />
+                <div className="absolute -inset-0.5 sm:-inset-1 bg-p3-surface skew-x-2 sm:skew-x-3 border-2 border-cyan-400/40 shadow-[3px_3px_0px_0px_#000c29] pointer-events-none" />
 
-              <div className="relative bg-p3-surface border-2 border-cyan-400 -skew-x-1 sm:-skew-x-2 p-3.5 sm:p-6 shadow-[5px_5px_0px_0px_#002288] sm:shadow-[8px_8px_0px_0px_#002288] transition-all duration-300">
-                
-                {/* Header Tag */}
-                <div className="flex justify-between items-center border-b border-slate-800/80 pb-2.5 mb-3 sm:mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="font-black italic text-[9px] sm:text-xs px-2 py-0.5 bg-cyan-400 text-p3-surface -skew-x-12 shadow-[2px_2px_0px_0px_#000]">
-                      TELEMETRY METRICS
-                    </span>
-                    <span className="font-mono text-[9px] sm:text-xs text-cyan-300 uppercase tracking-wider hidden xs:inline-block">
-                      OPERATIVE_PERFORMANCE
-                    </span>
-                  </div>
-                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
-                </div>
-
-                {/* 3 Metrics Grid Inside ONE Card */}
-                <div className="grid grid-cols-3 gap-1.5 sm:gap-6 divide-x divide-slate-800/80">
+                <div className="relative bg-p3-surface border-2 border-cyan-400 -skew-x-1 sm:-skew-x-2 p-3.5 sm:p-6 shadow-[5px_5px_0px_0px_#002288] sm:shadow-[8px_8px_0px_0px_#002288] transition-all duration-300">
                   
-                  {/* Metric 1: Total Completed */}
-                  <div className="flex flex-col items-center sm:items-start px-1 sm:px-4 text-center sm:text-left">
-                    <div className="flex items-center gap-1 text-[#00f0ff] mb-1">
-                      <Activity className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-                      <span className="font-black italic text-[8px] sm:text-xs tracking-wider uppercase truncate">
-                        COMPLETED
+                  {/* Header Tag */}
+                  <div className="flex justify-between items-center border-b border-slate-800/80 pb-2.5 mb-3 sm:mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black italic text-[9px] sm:text-xs px-2 py-0.5 bg-cyan-400 text-p3-surface -skew-x-12 shadow-[2px_2px_0px_0px_#000]">
+                        TELEMETRY METRICS
+                      </span>
+                      <span className="font-mono text-[9px] sm:text-xs text-cyan-300 uppercase tracking-wider hidden xs:inline-block">
+                        OPERATIVE_PERFORMANCE
                       </span>
                     </div>
-                    <span className="font-black italic text-xl xs:text-2xl sm:text-4xl lg:text-5xl text-white tracking-wider drop-shadow-[2px_2px_0px_#00f0ff] my-0.5 sm:my-1">
-                      {performance_summary.total_quizzes_completed}
-                    </span>
-                    <span className="font-mono text-[7.5px] sm:text-[10px] text-slate-400 uppercase tracking-tight">
-                      QUIZZES
-                    </span>
+                    <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
                   </div>
 
-                  {/* Metric 2: Lifetime Accuracy */}
-                  <div className="flex flex-col items-center sm:items-start px-1 sm:px-4 text-center sm:text-left">
-                    <div className="flex items-center gap-1 text-[#00f0ff] mb-1">
-                      <Target className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-                      <span className="font-black italic text-[8px] sm:text-xs tracking-wider uppercase truncate">
-                        ACCURACY
+                  {/* 3 Metrics Grid Inside ONE Card */}
+                  <div className="grid grid-cols-3 gap-1.5 sm:gap-6 divide-x divide-slate-800/80">
+                    
+                    {/* Metric 1: Total Completed */}
+                    <div className="flex flex-col items-center sm:items-start px-1 sm:px-4 text-center sm:text-left">
+                      <div className="flex items-center gap-1 text-[#00f0ff] mb-1">
+                        <Activity className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="font-black italic text-[8px] sm:text-xs tracking-wider uppercase truncate">
+                          COMPLETED
+                        </span>
+                      </div>
+                      <span className="font-black italic text-xl xs:text-2xl sm:text-4xl lg:text-5xl text-white tracking-wider drop-shadow-[2px_2px_0px_#00f0ff] my-0.5 sm:my-1">
+                        {performance_summary.total_quizzes_completed}
+                      </span>
+                      <span className="font-mono text-[7.5px] sm:text-[10px] text-slate-400 uppercase tracking-tight">
+                        QUIZZES
                       </span>
                     </div>
-                    <span className="font-black italic text-xl xs:text-2xl sm:text-4xl lg:text-5xl text-white tracking-wider drop-shadow-[2px_2px_0px_#00f0ff] my-0.5 sm:my-1">
-                      {performance_summary.lifetime_accuracy_rate}%
-                    </span>
-                    <span className="font-mono text-[7.5px] sm:text-[10px] text-slate-400 uppercase tracking-tight">
-                      LIFETIME AVG
-                    </span>
-                  </div>
 
-                  {/* Metric 3: Pressure Score */}
-                  <div className="flex flex-col items-center sm:items-start px-1 sm:px-4 text-center sm:text-left">
-                    <div className="flex items-center gap-1 text-[#00f0ff] mb-1">
-                      <Zap className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-                      <span className="font-black italic text-[8px] sm:text-xs tracking-wider uppercase truncate">
-                        PRESSURE
+                    {/* Metric 2: Lifetime Accuracy */}
+                    <div className="flex flex-col items-center sm:items-start px-1 sm:px-4 text-center sm:text-left">
+                      <div className="flex items-center gap-1 text-[#00f0ff] mb-1">
+                        <Target className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="font-black italic text-[8px] sm:text-xs tracking-wider uppercase truncate">
+                          ACCURACY
+                        </span>
+                      </div>
+                      <span className="font-black italic text-xl xs:text-2xl sm:text-4xl lg:text-5xl text-white tracking-wider drop-shadow-[2px_2px_0px_#00f0ff] my-0.5 sm:my-1">
+                        {performance_summary.lifetime_accuracy_rate}%
+                      </span>
+                      <span className="font-mono text-[7.5px] sm:text-[10px] text-slate-400 uppercase tracking-tight">
+                        LIFETIME AVG
                       </span>
                     </div>
-                    <span className="font-black italic text-xl xs:text-2xl sm:text-4xl lg:text-5xl text-white tracking-wider drop-shadow-[2px_2px_0px_#00f0ff] my-0.5 sm:my-1">
-                      {performance_summary.lifetime_pressure_score}
-                    </span>
-                    <span className="font-mono text-[7.5px] sm:text-[10px] text-slate-400 uppercase tracking-tight">
-                      SCORE INDEX
-                    </span>
+
+                    {/* Metric 3: Pressure Score */}
+                    <div className="flex flex-col items-center sm:items-start px-1 sm:px-4 text-center sm:text-left">
+                      <div className="flex items-center gap-1 text-[#00f0ff] mb-1">
+                        <Zap className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="font-black italic text-[8px] sm:text-xs tracking-wider uppercase truncate">
+                          PRESSURE
+                        </span>
+                      </div>
+                      <span className="font-black italic text-xl xs:text-2xl sm:text-4xl lg:text-5xl text-white tracking-wider drop-shadow-[2px_2px_0px_#00f0ff] my-0.5 sm:my-1">
+                        {performance_summary.lifetime_pressure_score}
+                      </span>
+                      <span className="font-mono text-[7.5px] sm:text-[10px] text-slate-400 uppercase tracking-tight">
+                        SCORE INDEX
+                      </span>
+                    </div>
+
                   </div>
 
                 </div>
+              </div>
 
+              {/* QUICK LAUNCH QUIZZES BANNER */}
+              <div className="relative border-2 border-cyan-400 bg-p3-surface -skew-x-1 sm:-skew-x-2 p-4 sm:p-6 shadow-[5px_5px_0px_0px_#002288] sm:shadow-[8px_8px_0px_0px_#002288] flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+                <div className="space-y-0.5 text-center sm:text-left">
+                  <span className="font-black italic text-[10px] sm:text-xs text-cyan-300 uppercase tracking-widest block">
+                    TACTICAL ASSESSMENT READY
+                  </span>
+                  <h3 className="font-black italic text-lg sm:text-2xl text-white uppercase tracking-wider">
+                    LAUNCH ACTIVE QUIZZES
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setActiveTab("quizzes")}
+                  className="w-full sm:w-auto px-5 py-2.5 sm:py-3 -skew-x-6 border-2 border-cyan-400 bg-linear-to-r from-blue-700 to-cyan-600 text-white font-black italic text-xs tracking-widest uppercase transition-all shadow-[3px_3px_0px_0px_#001a66] hover:shadow-[4px_4px_0px_0px_#00f0ff] hover:translate-x-1 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>GO TO QUIZZES</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
+          )}
 
-            {/* QUICK LAUNCH QUIZZES BANNER */}
-            <div className="relative border-2 border-cyan-400 bg-p3-surface -skew-x-1 sm:-skew-x-2 p-4 sm:p-6 shadow-[5px_5px_0px_0px_#002288] sm:shadow-[8px_8px_0px_0px_#002288] flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-              <div className="space-y-0.5 text-center sm:text-left">
-                <span className="font-black italic text-[10px] sm:text-xs text-cyan-300 uppercase tracking-widest block">
-                  TACTICAL ASSESSMENT READY
-                </span>
-                <h3 className="font-black italic text-lg sm:text-2xl text-white uppercase tracking-wider">
-                  LAUNCH ACTIVE QUIZZES
-                </h3>
+          {/* TAB CONTENT VIEW 2: QUIZZES */}
+          {activeTab === "quizzes" && (
+            <div className="w-full">
+              <div className="relative mb-3 sm:mb-4 flex items-center gap-3">
+                <div className="inline-block bg-linear-to-r from-cyan-400 to-blue-600 text-p3-surface px-3.5 py-1 -skew-x-12 border-r-6 sm:border-r-8 border-blue-900 shadow-[3px_3px_0px_0px_#001a66]">
+                  <span className="font-black italic text-xs sm:text-sm tracking-widest uppercase">
+                    AVAILABLE QUIZZES
+                  </span>
+                </div>
+                <div className="h-1 flex-1 bg-linear-to-r from-cyan-400/60 to-transparent -skew-x-12 hidden sm:block" />
               </div>
-              <button
-                onClick={() => setActiveTab("quizzes")}
-                className="w-full sm:w-auto px-5 py-2.5 sm:py-3 -skew-x-6 border-2 border-cyan-400 bg-linear-to-r from-blue-700 to-cyan-600 text-white font-black italic text-xs tracking-widest uppercase transition-all shadow-[3px_3px_0px_0px_#001a66] hover:shadow-[4px_4px_0px_0px_#00f0ff] hover:translate-x-1 cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>GO TO QUIZZES</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* TAB CONTENT VIEW 2: QUIZZES */}
-        {activeTab === "quizzes" && (
-          <div className="w-full animate-slash-reveal">
-            <div className="relative mb-3 sm:mb-4 flex items-center gap-3">
-              <div className="inline-block bg-linear-to-r from-cyan-400 to-blue-600 text-p3-surface px-3.5 py-1 -skew-x-12 border-r-6 sm:border-r-8 border-blue-900 shadow-[3px_3px_0px_0px_#001a66]">
-                <span className="font-black italic text-xs sm:text-sm tracking-widest uppercase">
-                  AVAILABLE QUIZZES
-                </span>
-              </div>
-              <div className="h-1 flex-1 bg-linear-to-r from-cyan-400/60 to-transparent -skew-x-12 hidden sm:block" />
+              <QuizList onViewResults={handleViewResults} />
             </div>
+          )}
 
-            <QuizList onViewResults={handleViewResults} />
-          </div>
-        )}
+        </div>
+
+        {/* PERSONA FOOTER - Pushed to Bottom */}
+        <div className="w-full pt-4">
+          <Footer />
+        </div>
       </div>
 
       {/* RESULTS DOSSIER MODAL */}
@@ -545,7 +556,7 @@ export default function UserDashboard() {
                   onClick={confirmLogout}
                   className="px-4 py-1.5 sm:py-2 -skew-x-6 border-2 border-rose-400 bg-linear-to-r from-rose-700 to-red-600 text-white font-black italic text-[11px] sm:text-xs tracking-wider uppercase shadow-[3px_3px_0px_0px_#4c0519] hover:shadow-[4px_4px_0px_0px_#f43f5e] hover:translate-x-0.5 transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-3.5 h-3.5 shrink-0" />
                   <span>LOGOUT</span>
                 </button>
               </div>
@@ -553,6 +564,7 @@ export default function UserDashboard() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

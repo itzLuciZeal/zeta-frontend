@@ -6,7 +6,7 @@ export default function Footer() {
   const isBeta = lowerVersion.includes("beta");
 
   return (
-    <div className="p-4 w-full flex flex-col items-center justify-center space-y-1">
+    <div className="p-4 w-full flex flex-col items-center justify-center space-y-1 mt-4">
       <p className="font-rajdhani font-bold italic text-xs tracking-widest text-p3-muted -skew-x-6">
         ZETA // {appVersion.toUpperCase() || "0.0.0"}{" "}
         {isAlpha ? "[ALPHA VERSION]" : isBeta ? "[BETA VERSION]" : ""}
