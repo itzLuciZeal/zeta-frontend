@@ -130,14 +130,14 @@ function QuizRunner() {
       : "N/A";
 
     return (
-      <div className="min-h-screen bg-[#05070c] text-white flex items-center justify-center p-3 sm:p-6 py-8 sm:py-12 relative overflow-hidden select-none font-jakarta">
+      <div className="min-h-screen text-p3-highlight flex items-center justify-center p-3 sm:p-6 py-8 sm:py-12 relative overflow-hidden select-none font-jakarta">
         {/* Ambient Dark Grid Background */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#00e5ff0a_1px,transparent_1px),linear-gradient(to_bottom,#00e5ff0a_1px,transparent_1px)] bg-size[36px_36px] pointer-events-none" />
 
         {/* Main Pitch-Black Frame with Cyan Border */}
         <div className="w-full max-w-4xl bg-[#090d16]/95 border-2 border-cyan-400 p-5 sm:p-8 shadow-[0_0_60px_rgba(0,229,255,0.2)] backdrop-blur-md relative -skew-x-1 flex flex-col gap-6">
           {/* Top Slanted Banner Tag */}
-          <div className="absolute -top-4 left-4 sm:left-8 bg-cyan-400 text-black px-4 py-1 -skew-x-12 border border-white shadow-[0_0_15px_rgba(0,229,255,0.6)] flex items-center gap-2 z-20">
+          <div className="absolute -top-4 left-4 sm:left-8 bg-cyan-400 text-black px-4 py-1 -skew-x-12 border border-p3-highlight shadow-[0_0_15px_rgba(0,229,255,0.6)] flex items-center gap-2 z-20">
             <Trophy className="w-3.5 h-3.5 text-black" />
             <span className="font-kanit font-black italic text-xs tracking-widest uppercase">
               EVALUATION COMPLETE // TELEMETRY REPORT
